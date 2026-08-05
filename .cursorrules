@@ -1,0 +1,8 @@
+# C# Backend Architecture Rules
+- Architecture: Modular Monolith with Vertical Slices.
+- Framework: .NET 9, ASP.NET Core Web API, EF Core, PostgreSQL.
+- Folder Structure: Business logic is separated into `Modules/`.
+- Cross-module communication: Modules cannot reference each other's Entity models directly. Use Shared DTOs or MediatR events if cross-module communication is needed.
+- Multi-tenancy: Almost all database entities must have a `WorkspaceId`. NEVER query the database without considering the `WorkspaceId`. 
+- EF Core: Use the global `AppDbContext` in the `Shared/` project. Entities configuration should be done using `IEntityTypeConfiguration` inside the module's `Data/` folder.
+- Endpoint design: Favor Minimal APIs or REPR pattern (Request-Endpoint-Response). Avoid massive controllers. Create one file per endpoint (e.g., `CreateOrderEndpoint.cs`).
