@@ -13,6 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\CateringSaaS.Shared\CateringSaaS.Shared.csproj" />
     <ProjectReference Include="..\Modules\CateringSaaS.Modules.Ordering\CateringSaaS.Modules.Ordering.csproj" />
+    <ProjectReference Include="..\Modules\CateringSaaS.Modules.Identity\CateringSaaS.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\CateringSaaS.Modules.Tenants\CateringSaaS.Modules.Tenants.csproj" />
   </ItemGroup>
 
 </Project>

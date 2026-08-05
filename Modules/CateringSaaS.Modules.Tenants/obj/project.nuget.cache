@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "dgSpecHash": "mw+2Y+2avcA=",
+  "success": true,
+  "projectFilePath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Tenants\\CateringSaaS.Modules.Tenants.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore\\9.0.7\\microsoft.entityframeworkcore.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.abstractions\\9.0.7\\microsoft.entityframeworkcore.abstractions.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.analyzers\\9.0.7\\microsoft.entityframeworkcore.analyzers.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.relational\\9.0.7\\microsoft.entityframeworkcore.relational.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.caching.abstractions\\9.0.7\\microsoft.extensions.caching.abstractions.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.caching.memory\\9.0.7\\microsoft.extensions.caching.memory.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.configuration.abstractions\\9.0.7\\microsoft.extensions.configuration.abstractions.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.dependencyinjection\\9.0.7\\microsoft.extensions.dependencyinjection.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.dependencyinjection.abstractions\\9.0.7\\microsoft.extensions.dependencyinjection.abstractions.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.logging\\9.0.7\\microsoft.extensions.logging.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.logging.abstractions\\9.0.7\\microsoft.extensions.logging.abstractions.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.options\\9.0.7\\microsoft.extensions.options.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.primitives\\9.0.7\\microsoft.extensions.primitives.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\npgsql\\9.0.3\\npgsql.9.0.3.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\npgsql.entityframeworkcore.postgresql\\9.0.4\\npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512"
+  ],
+  "logs": []
+}
