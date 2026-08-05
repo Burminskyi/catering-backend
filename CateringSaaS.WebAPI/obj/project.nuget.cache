@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "fqEXD9MLE3Q=",
+  "dgSpecHash": "LVFxAwL30YM=",
   "success": true,
   "projectFilePath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.WebAPI\\CateringSaaS.WebAPI.csproj",
   "expectedPackageFiles": [
@@ -10,6 +10,7 @@
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.abstractions\\9.0.7\\microsoft.entityframeworkcore.abstractions.9.0.7.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.analyzers\\9.0.7\\microsoft.entityframeworkcore.analyzers.9.0.7.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.entityframeworkcore.relational\\9.0.7\\microsoft.entityframeworkcore.relational.9.0.7.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.apidescription.server\\9.0.0\\microsoft.extensions.apidescription.server.9.0.0.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.caching.abstractions\\9.0.7\\microsoft.extensions.caching.abstractions.9.0.7.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.caching.memory\\9.0.7\\microsoft.extensions.caching.memory.9.0.7.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.extensions.configuration.abstractions\\9.0.7\\microsoft.extensions.configuration.abstractions.9.0.7.nupkg.sha512",
@@ -25,9 +26,13 @@
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.identitymodel.protocols\\8.0.1\\microsoft.identitymodel.protocols.8.0.1.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.identitymodel.protocols.openidconnect\\8.0.1\\microsoft.identitymodel.protocols.openidconnect.8.0.1.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.identitymodel.tokens\\8.12.1\\microsoft.identitymodel.tokens.8.12.1.nupkg.sha512",
-    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\microsoft.openapi\\1.6.23\\microsoft.openapi.1.6.23.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\npgsql\\9.0.3\\npgsql.9.0.3.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\npgsql.entityframeworkcore.postgresql\\9.0.4\\npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\swashbuckle.aspnetcore\\9.0.3\\swashbuckle.aspnetcore.9.0.3.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\swashbuckle.aspnetcore.swagger\\9.0.3\\swashbuckle.aspnetcore.swagger.9.0.3.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\swashbuckle.aspnetcore.swaggergen\\9.0.3\\swashbuckle.aspnetcore.swaggergen.9.0.3.nupkg.sha512",
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\swashbuckle.aspnetcore.swaggerui\\9.0.3\\swashbuckle.aspnetcore.swaggerui.9.0.3.nupkg.sha512",
     "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7a683559d1ad8a77601180e756c330b4\\nuget\\system.identitymodel.tokens.jwt\\8.12.1\\system.identitymodel.tokens.jwt.8.12.1.nupkg.sha512"
   ],
   "logs": []
