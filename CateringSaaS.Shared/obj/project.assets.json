@@ -2784,7 +2784,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\burmi\\.nuget\\packages\\": {},
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -2793,7 +2793,7 @@
       "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
       "projectName": "CateringSaaS.Shared",
       "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
-      "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget",
       "outputPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
@@ -2865,6 +2865,9 @@
         "assetTargetFallback": true,
         "warn": true,
         "frameworkReferences": {
+          "Microsoft.AspNetCore.App": {
+            "privateAssets": "none"
+          },
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           }

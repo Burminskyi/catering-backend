@@ -308,7 +308,10 @@
         },
         "runtime": {
           "bin/placeholder/CateringSaaS.Shared.dll": {}
-        }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       }
     }
   },
@@ -778,7 +781,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\burmi\\.nuget\\packages\\": {},
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -787,7 +790,7 @@
       "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
       "projectName": "CateringSaaS.Modules.Inventory",
       "projectPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
-      "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget",
       "outputPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
@@ -810,8 +813,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
-              "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
+            "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
+              "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
             }
           }
         }

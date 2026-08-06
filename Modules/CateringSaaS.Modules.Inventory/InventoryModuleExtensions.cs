@@ -1,5 +1,6 @@
 using CateringSaaS.Modules.Inventory.Data;
 using CateringSaaS.Modules.Inventory.Endpoints;
+using CateringSaaS.Modules.Inventory.Services;
 using CateringSaaS.Modules.Inventory.Validators;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
@@ -17,6 +18,11 @@ public static class InventoryModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(IngredientConfiguration).Assembly);
 
         services.AddScoped<IInventoryDataSeeder, InventoryDatabaseSeeder>();
+        services.AddScoped<IIngredientService, IngredientService>();
+        services.AddScoped<IStockPurchaseService, StockPurchaseService>();
+        services.AddScoped<IStockConsumptionService, StockConsumptionService>();
+        services.AddScoped<IInventoryBalanceService, InventoryBalanceService>();
+
         services.AddValidatorsFromAssemblyContaining<CreateIngredientValidator>(
             lifetime: ServiceLifetime.Scoped);
 
@@ -25,7 +31,27 @@ public static class InventoryModuleExtensions
 
     public static IEndpointRouteBuilder MapInventoryEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapCreateIngredientEndpoint();
+        var ingredients = app.MapGroup("/api/ingredients")
+            .RequireAuthorization(policy => policy.RequireRole(
+                "CateringManager",
+                "CateringStaff",
+                "SuperAdmin"));
+
+        ingredients.MapGetIngredientsEndpoint();
+        ingredients.MapCreateIngredientEndpoint();
+        ingredients.MapUpdateIngredientEndpoint();
+        ingredients.MapDeleteIngredientEndpoint();
+
+        var inventory = app.MapGroup("/api/inventory")
+            .RequireAuthorization(policy => policy.RequireRole(
+                "CateringManager",
+                "CateringStaff",
+                "SuperAdmin"));
+
+        inventory.MapAddStockPurchaseEndpoint();
+        inventory.MapConsumeStockEndpoint();
+        inventory.MapGetInventoryBalanceEndpoint();
+
         return app;
     }
 

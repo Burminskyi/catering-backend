@@ -12,7 +12,8 @@ public static class SharedServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddScoped<ITenantContext, NullTenantContext>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ITenantContext, HttpTenantContext>();
 
         services.AddDbContext<AppDbContext>(options =>
         {
