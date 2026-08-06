@@ -1,4 +1,5 @@
 using CateringSaaS.Modules.Identity;
+using CateringSaaS.Modules.Inventory;
 using CateringSaaS.Modules.Tenants;
 using CateringSaaS.Shared;
 using Microsoft.OpenApi.Models;
@@ -51,6 +52,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSharedPersistence(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddTenantModule();
+builder.Services.AddInventoryModule();
 
 var app = builder.Build();
 
@@ -69,6 +71,7 @@ app.UseAuthorization();
 
 app.MapIdentityEndpoints();
 app.MapTenantEndpoints();
+app.MapInventoryEndpoints();
 
 await app.UseIdentityModuleAsync();
 

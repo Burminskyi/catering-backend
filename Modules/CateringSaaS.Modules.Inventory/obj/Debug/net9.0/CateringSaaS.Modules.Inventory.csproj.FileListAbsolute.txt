@@ -1,0 +1,16 @@
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.csproj.AssemblyReference.cache
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.GeneratedMSBuildEditorConfig.editorconfig
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.AssemblyInfoInputs.cache
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.AssemblyInfo.cs
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.csproj.CoreCompileInputs.cache
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.sourcelink.json
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\bin\Debug\net9.0\CateringSaaS.Modules.Inventory.deps.json
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\bin\Debug\net9.0\CateringSaaS.Modules.Inventory.dll
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\bin\Debug\net9.0\CateringSaaS.Modules.Inventory.pdb
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\bin\Debug\net9.0\CateringSaaS.Shared.dll
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\bin\Debug\net9.0\CateringSaaS.Shared.pdb
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\Catering.798C6987.Up2Date
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.dll
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\refint\CateringSaaS.Modules.Inventory.dll
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\CateringSaaS.Modules.Inventory.pdb
+c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Inventory\obj\Debug\net9.0\ref\CateringSaaS.Modules.Inventory.dll

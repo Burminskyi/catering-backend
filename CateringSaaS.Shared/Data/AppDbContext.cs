@@ -5,6 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CateringSaaS.Shared.Data;
 
+/// <summary>
+/// Global EF Core context for the modular monolith.
+/// Module entities are accessed via <c>Set&lt;T&gt;()</c> (no DbSet properties here)
+/// so Shared does not take a dependency on module assemblies.
+/// Inventory examples: <c>db.Set&lt;Ingredient&gt;()</c>, <c>db.Set&lt;StockBatch&gt;()</c>, <c>db.Set&lt;Inventory&gt;()</c>.
+/// </summary>
 public class AppDbContext : DbContext
 {
     private static readonly MethodInfo SetWorkspaceFilterMethod =

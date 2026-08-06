@@ -19,7 +19,9 @@ public static class SharedServiceExtensions
             var connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(
+                connectionString,
+                npgsql => npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
         });
 
         return services;

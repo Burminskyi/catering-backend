@@ -11,3 +11,5 @@ c:\Dev\Catering\backend-core\CateringSaaS.Shared\obj\Debug\net9.0\CateringSaaS.S
 c:\Dev\Catering\backend-core\CateringSaaS.Shared\obj\Debug\net9.0\refint\CateringSaaS.Shared.dll
 c:\Dev\Catering\backend-core\CateringSaaS.Shared\obj\Debug\net9.0\CateringSaaS.Shared.pdb
 c:\Dev\Catering\backend-core\CateringSaaS.Shared\obj\Debug\net9.0\ref\CateringSaaS.Shared.dll
+C:\Dev\Catering\backend-core\CateringSaaS.Shared\bin\Debug\net9.0\CateringSaaS.Shared.runtimeconfig.json
+C:\Dev\Catering\backend-core\CateringSaaS.Shared\obj\Debug\net9.0\CateringSaaS.Shared.genruntimeconfig.cache
