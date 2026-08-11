@@ -1,4 +1,5 @@
 using CateringSaaS.Modules.Identity.Domain;
+using CateringSaaS.Modules.Identity.DTOs;
 using CateringSaaS.Modules.Identity.Services;
 using CateringSaaS.Shared.Data;
 using Microsoft.AspNetCore.Builder;
@@ -21,20 +22,37 @@ public static class LoginEndpoint
         LoginRequest request,
         AppDbContext dbContext,
         JwtTokenGenerator tokenGenerator,
+        IPasswordHasher passwordHasher,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Password))
         {
-            return Results.BadRequest(new { message = "Email and password are required." });
+            return Results.BadRequest(new { message = "Password is required." });
         }
 
-        var email = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.Username) && string.IsNullOrWhiteSpace(request.Email))
+        {
+            return Results.BadRequest(new { message = "Username or Email is required." });
+        }
 
-        var user = await dbContext.Set<User>()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken);
+        User? user = null;
 
-        // MVP: plain-text password comparison (PasswordHash stores the raw password for seed users)
-        if (user is null || !string.Equals(user.PasswordHash, request.Password, StringComparison.Ordinal))
+        if (!string.IsNullOrWhiteSpace(request.Username))
+        {
+            var username = request.Username.Trim().ToLowerInvariant();
+            user = await dbContext.Set<User>()
+                .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var email = request.Email.Trim().ToLowerInvariant();
+            user = await dbContext.Set<User>()
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        }
+
+        if (user is null
+            || !user.IsActive
+            || !passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             return Results.Unauthorized();
         }
@@ -44,6 +62,7 @@ public static class LoginEndpoint
         return Results.Ok(new LoginResponse(
             token,
             user.Id,
+            user.Username,
             user.Email,
             user.Role.ToString(),
             user.WorkspaceId,
@@ -51,12 +70,13 @@ public static class LoginEndpoint
     }
 }
 
-public sealed record LoginRequest(string Email, string Password);
+public sealed record LoginRequest(string? Username, string? Email, string Password);
 
 public sealed record LoginResponse(
     string AccessToken,
     Guid UserId,
-    string Email,
+    string Username,
+    string? Email,
     string Role,
     Guid? WorkspaceId,
     Guid? CompanyId);

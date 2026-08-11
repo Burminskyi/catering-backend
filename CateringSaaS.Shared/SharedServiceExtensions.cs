@@ -14,6 +14,7 @@ public static class SharedServiceExtensions
     {
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, HttpTenantContext>();
+        services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 
         services.AddDbContext<AppDbContext>(options =>
         {

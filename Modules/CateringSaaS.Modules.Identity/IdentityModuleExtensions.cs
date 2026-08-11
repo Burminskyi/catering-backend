@@ -2,8 +2,10 @@ using System.Text;
 using CateringSaaS.Modules.Identity.Data;
 using CateringSaaS.Modules.Identity.Endpoints;
 using CateringSaaS.Modules.Identity.Services;
+using CateringSaaS.Modules.Identity.Validators;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -22,8 +24,14 @@ public static class IdentityModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(UserConfiguration).Assembly);
 
         services.AddSingleton<JwtTokenGenerator>();
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<IWorkspaceManagerProvisioner, WorkspaceManagerProvisioner>();
+        services.AddScoped<IStaffService, StaffService>();
+        services.AddScoped<IProfileService, ProfileService>();
+
+        services.AddValidatorsFromAssemblyContaining<CreateStaffMemberValidator>(
+            lifetime: ServiceLifetime.Scoped);
 
         var secret = configuration["Jwt:Secret"]
             ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
@@ -34,7 +42,6 @@ public static class IdentityModuleExtensions
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
-                // Keep claim names as emitted (e.g. "role") so RequireRole("SuperAdmin") matches.
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -59,6 +66,22 @@ public static class IdentityModuleExtensions
     {
         endpoints.MapLoginEndpoint();
         endpoints.MapImpersonateWorkspaceEndpoint();
+
+        var staff = endpoints.MapGroup("/api/staff")
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+
+        staff.MapGetStaffEndpoint();
+        staff.MapCreateStaffEndpoint();
+        staff.MapUpdateStaffEndpoint();
+        staff.MapDeleteStaffEndpoint();
+
+        var profile = endpoints.MapGroup("/api/profile")
+            .RequireAuthorization();
+
+        profile.MapGetProfileEndpoint();
+        profile.MapUpdateProfileEndpoint();
+        profile.MapChangePasswordEndpoint();
+
         return endpoints;
     }
 

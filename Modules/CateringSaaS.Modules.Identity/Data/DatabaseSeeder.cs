@@ -1,4 +1,5 @@
 using CateringSaaS.Modules.Identity.Domain;
+using CateringSaaS.Modules.Identity.Services;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +16,18 @@ public sealed class DatabaseSeeder
 
     private readonly AppDbContext _dbContext;
     private readonly IInventoryDataSeeder _inventoryDataSeeder;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<DatabaseSeeder> _logger;
 
     public DatabaseSeeder(
         AppDbContext dbContext,
         IInventoryDataSeeder inventoryDataSeeder,
+        IPasswordHasher passwordHasher,
         ILogger<DatabaseSeeder> logger)
     {
         _dbContext = dbContext;
         _inventoryDataSeeder = inventoryDataSeeder;
+        _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
@@ -36,14 +40,16 @@ public sealed class DatabaseSeeder
         {
             _logger.LogInformation("Seeding mock identity users for frontend testing...");
 
+            var passwordHash = _passwordHasher.Hash(DefaultPassword);
+
             var seedUsers = new[]
             {
-                CreateUser("superadmin@test.com", AppRole.SuperAdmin, workspaceId: null, companyId: null),
-                CreateUser("manager@test.com", AppRole.CateringManager, MockWorkspaceId, companyId: null),
-                CreateUser("staff@test.com", AppRole.CateringStaff, MockWorkspaceId, companyId: null),
-                CreateUser("driver@test.com", AppRole.CateringDriver, MockWorkspaceId, companyId: null),
-                CreateUser("officemanager@test.com", AppRole.OfficeManager, MockWorkspaceId, MockCompanyId),
-                CreateUser("employee@test.com", AppRole.OfficeEmployee, MockWorkspaceId, MockCompanyId)
+                CreateUser("superadmin", "superadmin@test.com", "Super", "Admin", StaffRole.SuperAdmin, null, null, passwordHash),
+                CreateUser("manager", "manager@test.com", "Catering", "Manager", StaffRole.WorkspaceAdmin, MockWorkspaceId, null, passwordHash),
+                CreateUser("staff", null, "Kitchen", "Staff", StaffRole.Staff, MockWorkspaceId, null, passwordHash),
+                CreateUser("driver", null, "Delivery", "Driver", StaffRole.Driver, MockWorkspaceId, null, passwordHash),
+                CreateUser("officemanager", "officemanager@test.com", "Office", "Manager", StaffRole.Manager, MockWorkspaceId, MockCompanyId, passwordHash),
+                CreateUser("employee", "employee@test.com", "Office", "Employee", StaffRole.Staff, MockWorkspaceId, MockCompanyId, passwordHash)
             };
 
             await users.AddRangeAsync(seedUsers, cancellationToken);
@@ -56,19 +62,29 @@ public sealed class DatabaseSeeder
                 MockCompanyId);
         }
 
-        // Global shared ingredient catalog (Inventory module) — independent of user seed.
         await _inventoryDataSeeder.SeedAsync(cancellationToken);
     }
 
-    private static User CreateUser(string email, AppRole role, Guid? workspaceId, Guid? companyId) =>
+    private static User CreateUser(
+        string username,
+        string? email,
+        string firstName,
+        string lastName,
+        StaffRole role,
+        Guid? workspaceId,
+        Guid? companyId,
+        string passwordHash) =>
         new()
         {
             Id = Guid.NewGuid(),
+            Username = username,
             Email = email,
-            // MVP: store plain text for simple comparison during login testing
-            PasswordHash = DefaultPassword,
+            PasswordHash = passwordHash,
+            FirstName = firstName,
+            LastName = lastName,
             Role = role,
             WorkspaceId = workspaceId,
-            CompanyId = companyId
+            CompanyId = companyId,
+            IsActive = true
         };
 }

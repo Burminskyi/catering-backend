@@ -33,8 +33,11 @@ public static class InventoryModuleExtensions
     {
         var ingredients = app.MapGroup("/api/ingredients")
             .RequireAuthorization(policy => policy.RequireRole(
-                "CateringManager",
-                "CateringStaff",
+                "WorkspaceAdmin",
+                "Manager",
+                "Chef",
+                "Driver",
+                "Staff",
                 "SuperAdmin"));
 
         ingredients.MapGetIngredientsEndpoint();
@@ -44,8 +47,11 @@ public static class InventoryModuleExtensions
 
         var inventory = app.MapGroup("/api/inventory")
             .RequireAuthorization(policy => policy.RequireRole(
-                "CateringManager",
-                "CateringStaff",
+                "WorkspaceAdmin",
+                "Manager",
+                "Chef",
+                "Driver",
+                "Staff",
                 "SuperAdmin"));
 
         inventory.MapAddStockPurchaseEndpoint();

@@ -781,17 +781,17 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget": {},
+    "C:\\Users\\burmi\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
+      "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
       "projectName": "CateringSaaS.Modules.Inventory",
-      "projectPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
-      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget",
-      "outputPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\obj\\",
+      "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj",
+      "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
+      "outputPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -813,8 +813,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
-              "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
+            "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
+              "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
             }
           }
         }

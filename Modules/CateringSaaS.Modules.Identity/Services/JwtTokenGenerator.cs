@@ -32,7 +32,7 @@ public sealed class JwtTokenGenerator
     public string GenerateImpersonationToken(User manager, Guid impersonatedByUserId) =>
         Generate(
             userId: manager.Id,
-            role: AppRole.CateringManager.ToString(),
+            role: StaffRole.WorkspaceAdmin.ToString(),
             workspaceId: manager.WorkspaceId,
             companyId: manager.CompanyId,
             extraClaims:

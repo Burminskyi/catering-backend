@@ -775,6 +775,7 @@
       "CateringSaaS.Modules.Identity/1.0.0": {
         "dependencies": {
           "CateringSaaS.Shared": "1.0.0",
+          "FluentValidation.DependencyInjectionExtensions": "11.11.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "9.0.7",
           "Microsoft.Extensions.Configuration.Abstractions": "9.0.7",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.7",

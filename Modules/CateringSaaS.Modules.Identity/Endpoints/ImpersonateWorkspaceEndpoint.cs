@@ -27,6 +27,7 @@ public static class ImpersonateWorkspaceEndpoint
         AppDbContext dbContext,
         IWorkspaceLookup workspaceLookup,
         JwtTokenGenerator tokenGenerator,
+        IPasswordHasher passwordHasher,
         CancellationToken cancellationToken)
     {
         if (!await workspaceLookup.ExistsAsync(workspaceId, cancellationToken))
@@ -38,7 +39,7 @@ public static class ImpersonateWorkspaceEndpoint
 
         var manager = await users
             .FirstOrDefaultAsync(
-                u => u.WorkspaceId == workspaceId && u.Role == AppRole.CateringManager,
+                u => u.WorkspaceId == workspaceId && u.Role == StaffRole.WorkspaceAdmin,
                 cancellationToken);
 
         if (manager is null)
@@ -46,10 +47,14 @@ public static class ImpersonateWorkspaceEndpoint
             manager = new User
             {
                 Id = Guid.NewGuid(),
-                Email = $"manager-{workspaceId:N}@impersonation.local",
-                PasswordHash = Guid.NewGuid().ToString("N"),
-                Role = AppRole.CateringManager,
                 WorkspaceId = workspaceId,
+                Username = $"admin-{workspaceId:N}".ToLowerInvariant(),
+                Email = null,
+                PasswordHash = passwordHasher.Hash(Guid.NewGuid().ToString("N")),
+                FirstName = "Impersonation",
+                LastName = "Admin",
+                Role = StaffRole.WorkspaceAdmin,
+                IsActive = true,
                 CompanyId = null
             };
 
@@ -64,7 +69,7 @@ public static class ImpersonateWorkspaceEndpoint
             token,
             workspaceId,
             manager.Id,
-            AppRole.CateringManager.ToString()));
+            StaffRole.WorkspaceAdmin.ToString()));
     }
 
     private static Guid? ResolveUserId(ClaimsPrincipal principal)

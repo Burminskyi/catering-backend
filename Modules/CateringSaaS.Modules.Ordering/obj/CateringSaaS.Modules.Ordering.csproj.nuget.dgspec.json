@@ -4,14 +4,14 @@
     "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\CateringSaaS.Modules.Ordering.csproj": {}
   },
   "projects": {
-    "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
+    "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
+        "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
         "projectName": "CateringSaaS.Shared",
-        "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
-        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget",
-        "outputPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
+        "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
+        "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
+        "outputPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -99,7 +99,7 @@
         "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\CateringSaaS.Modules.Ordering.csproj",
         "projectName": "CateringSaaS.Modules.Ordering",
         "projectPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\CateringSaaS.Modules.Ordering.csproj",
-        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d93199340d373899dbdb54bba505da30\\nuget",
+        "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
         "outputPath": "c:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -122,8 +122,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
-                "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
+              "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj": {
+                "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj"
               }
             }
           }
