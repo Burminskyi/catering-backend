@@ -23,7 +23,12 @@ public class User
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// Optional company scope for office-facing users (legacy SaaS feature).
+    /// Optional B2B2B client company scope (ClientCompany entity lives in Tenants module).
+    /// </summary>
+    public Guid? ClientCompanyId { get; set; }
+
+    /// <summary>
+    /// Legacy company scope for office-facing users.
     /// </summary>
     public Guid? CompanyId { get; set; }
 }

@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Identity.Domain;
 using CateringSaaS.Modules.Identity.DTOs;
 using CateringSaaS.Modules.Identity.Services;
+using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -21,6 +22,7 @@ public static class LoginEndpoint
     private static async Task<IResult> HandleAsync(
         LoginRequest request,
         AppDbContext dbContext,
+        IWorkspaceLookup workspaceLookup,
         JwtTokenGenerator tokenGenerator,
         IPasswordHasher passwordHasher,
         CancellationToken cancellationToken)
@@ -35,19 +37,39 @@ public static class LoginEndpoint
             return Results.BadRequest(new { message = "Username or Email is required." });
         }
 
+        Guid? resolvedWorkspaceId = null;
+
+        if (!string.IsNullOrWhiteSpace(request.Subdomain))
+        {
+            resolvedWorkspaceId = await workspaceLookup.ResolveWorkspaceIdBySubdomainAsync(
+                request.Subdomain,
+                cancellationToken);
+
+            if (resolvedWorkspaceId is null)
+            {
+                return Results.NotFound(new { message = $"Workspace with subdomain '{request.Subdomain.Trim().ToLowerInvariant()}' was not found." });
+            }
+        }
+
         User? user = null;
 
         if (!string.IsNullOrWhiteSpace(request.Username))
         {
             var username = request.Username.Trim().ToLowerInvariant();
-            user = await dbContext.Set<User>()
-                .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+            user = await FindUserByUsernameAsync(
+                dbContext,
+                username,
+                resolvedWorkspaceId,
+                cancellationToken);
         }
         else if (!string.IsNullOrWhiteSpace(request.Email))
         {
             var email = request.Email.Trim().ToLowerInvariant();
-            user = await dbContext.Set<User>()
-                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            user = await FindUserByEmailAsync(
+                dbContext,
+                email,
+                resolvedWorkspaceId,
+                cancellationToken);
         }
 
         if (user is null
@@ -66,11 +88,42 @@ public static class LoginEndpoint
             user.Email,
             user.Role.ToString(),
             user.WorkspaceId,
+            user.ClientCompanyId,
             user.CompanyId));
+    }
+
+    private static Task<User?> FindUserByUsernameAsync(
+        AppDbContext dbContext,
+        string username,
+        Guid? workspaceId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<User>().Where(u => u.Username == username);
+
+        query = workspaceId is Guid wsId
+            ? query.Where(u => u.WorkspaceId == wsId)
+            : query.Where(u => u.WorkspaceId == null);
+
+        return query.FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static Task<User?> FindUserByEmailAsync(
+        AppDbContext dbContext,
+        string email,
+        Guid? workspaceId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<User>().Where(u => u.Email == email);
+
+        query = workspaceId is Guid wsId
+            ? query.Where(u => u.WorkspaceId == wsId)
+            : query.Where(u => u.WorkspaceId == null);
+
+        return query.FirstOrDefaultAsync(cancellationToken);
     }
 }
 
-public sealed record LoginRequest(string? Username, string? Email, string Password);
+public sealed record LoginRequest(string? Username, string? Email, string Password, string? Subdomain);
 
 public sealed record LoginResponse(
     string AccessToken,
@@ -79,4 +132,5 @@ public sealed record LoginResponse(
     string? Email,
     string Role,
     Guid? WorkspaceId,
+    Guid? ClientCompanyId,
     Guid? CompanyId);

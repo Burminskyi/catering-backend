@@ -15,20 +15,28 @@ public static class TenantModuleExtensions
     {
         ModuleConfigurationRegistry.Register(typeof(WorkspaceConfiguration).Assembly);
         services.AddScoped<IWorkspaceLookup, WorkspaceLookup>();
+        services.AddScoped<IClientCompanyService, ClientCompanyService>();
+        services.AddScoped<ITenantDataSeeder, TenantDatabaseSeeder>();
         return services;
     }
 
     public static IEndpointRouteBuilder MapTenantEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/workspaces")
+        var workspaces = app.MapGroup("/api/workspaces")
             .RequireAuthorization(policy => policy.RequireRole("SuperAdmin"));
 
-        group.MapCreateWorkspaceEndpoint();
-        group.MapGetWorkspacesEndpoint();
-        group.MapUpdateWorkspaceStatusEndpoint();
-        group.MapDeleteWorkspaceEndpoint();
-        group.MapUpdateWorkspaceSubscriptionEndpoint();
-        group.MapUpdateWorkspaceManagerEndpoint();
+        workspaces.MapCreateWorkspaceEndpoint();
+        workspaces.MapGetWorkspacesEndpoint();
+        workspaces.MapUpdateWorkspaceStatusEndpoint();
+        workspaces.MapDeleteWorkspaceEndpoint();
+        workspaces.MapUpdateWorkspaceSubscriptionEndpoint();
+        workspaces.MapUpdateWorkspaceManagerEndpoint();
+
+        var clients = app.MapGroup("/api/clients")
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+
+        clients.MapGetClientsEndpoint();
+        clients.MapCreateClientEndpoint();
 
         return app;
     }

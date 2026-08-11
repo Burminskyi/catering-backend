@@ -27,6 +27,7 @@ public static class IdentityModuleExtensions
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<IWorkspaceManagerProvisioner, WorkspaceManagerProvisioner>();
+        services.AddScoped<IClientAdminProvisioner, ClientAdminProvisioner>();
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IProfileService, ProfileService>();
 

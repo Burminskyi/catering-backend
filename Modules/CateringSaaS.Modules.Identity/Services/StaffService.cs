@@ -203,7 +203,9 @@ public sealed class StaffService : IStaffService
     private static StaffRole ParseStaffRole(string role)
     {
         if (!Enum.TryParse<StaffRole>(role, ignoreCase: true, out var parsed)
-            || parsed == StaffRole.SuperAdmin)
+            || parsed is StaffRole.SuperAdmin
+                or StaffRole.ClientAdmin
+                or StaffRole.ClientEmployee)
         {
             throw new IdentityServiceException($"Invalid staff role '{role}'.");
         }

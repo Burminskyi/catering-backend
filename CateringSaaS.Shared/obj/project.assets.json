@@ -2784,17 +2784,17 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\burmi\\.nuget\\packages\\": {},
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\f9d9e753c70c931dfad9c35f49d2be17\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
+      "projectUniqueName": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
       "projectName": "CateringSaaS.Shared",
-      "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
-      "packagesPath": "C:\\Users\\burmi\\.nuget\\packages\\",
-      "outputPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
+      "projectPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
+      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\f9d9e753c70c931dfad9c35f49d2be17\\nuget",
+      "outputPath": "c:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -27,6 +27,7 @@ public sealed class JwtTokenGenerator
             userId: user.Id,
             role: user.Role.ToString(),
             workspaceId: user.WorkspaceId,
+            clientCompanyId: user.ClientCompanyId,
             companyId: user.CompanyId);
 
     public string GenerateImpersonationToken(User manager, Guid impersonatedByUserId) =>
@@ -34,6 +35,7 @@ public sealed class JwtTokenGenerator
             userId: manager.Id,
             role: StaffRole.WorkspaceAdmin.ToString(),
             workspaceId: manager.WorkspaceId,
+            clientCompanyId: manager.ClientCompanyId,
             companyId: manager.CompanyId,
             extraClaims:
             [
@@ -45,6 +47,7 @@ public sealed class JwtTokenGenerator
         Guid userId,
         string role,
         Guid? workspaceId,
+        Guid? clientCompanyId,
         Guid? companyId,
         IEnumerable<Claim>? extraClaims = null)
     {
@@ -57,6 +60,11 @@ public sealed class JwtTokenGenerator
         if (workspaceId is Guid wsId)
         {
             claims.Add(new Claim("workspaceId", wsId.ToString()));
+        }
+
+        if (clientCompanyId is Guid ccId)
+        {
+            claims.Add(new Claim("clientCompanyId", ccId.ToString()));
         }
 
         if (companyId is Guid cId)

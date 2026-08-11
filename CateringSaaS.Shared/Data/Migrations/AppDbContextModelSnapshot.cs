@@ -32,6 +32,9 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.Property<Guid?>("ClientCompanyId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CompanyId")
                         .HasColumnType("uuid");
 
@@ -71,6 +74,8 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientCompanyId");
 
                     b.HasIndex("WorkspaceId", "Username")
                         .IsUnique();
@@ -175,6 +180,30 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("stock_batches", (string)null);
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "Name");
+
+                    b.ToTable("client_companies", (string)null);
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
@@ -199,8 +228,8 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.Property<string>("Subdomain")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("SubscriptionExpiresAt")
                         .HasColumnType("timestamp with time zone");
@@ -233,6 +262,17 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Ingredient");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Tenants.Domain.Workspace", "Workspace")
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Workspace");
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.Ingredient", b =>

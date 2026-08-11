@@ -47,6 +47,10 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsActive)
             .IsRequired();
 
+        builder.Property(u => u.ClientCompanyId);
+
+        builder.HasIndex(u => u.ClientCompanyId);
+
         builder.Property(u => u.CompanyId);
     }
 }

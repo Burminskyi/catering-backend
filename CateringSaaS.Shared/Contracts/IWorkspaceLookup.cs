@@ -1,9 +1,13 @@
 namespace CateringSaaS.Shared.Contracts;
 
 /// <summary>
-/// Cross-module contract: Tenants exposes workspace existence checks without leaking the entity.
+/// Cross-module contract: resolve workspace context without leaking Tenants entities.
 /// </summary>
 public interface IWorkspaceLookup
 {
     Task<bool> ExistsAsync(Guid workspaceId, CancellationToken cancellationToken = default);
+
+    Task<Guid?> ResolveWorkspaceIdBySubdomainAsync(
+        string subdomain,
+        CancellationToken cancellationToken = default);
 }
