@@ -180,6 +180,178 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("stock_batches", (string)null);
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.Dish", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OutputWeight")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "IsActive");
+
+                    b.HasIndex("WorkspaceId", "Name");
+
+                    b.ToTable("dishes", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.DishIngredient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DishId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("IngredientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DishId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("DishId", "IngredientId")
+                        .IsUnique();
+
+                    b.ToTable("dish_ingredients", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.Menu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClientCompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "ClientCompanyId");
+
+                    b.HasIndex("WorkspaceId", "Status");
+
+                    b.ToTable("menus", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("MenuId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("MenuId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("menu_days", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DishId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuDayId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("SellingPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DishId");
+
+                    b.HasIndex("MenuDayId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("MenuDayId", "DishId")
+                        .IsUnique();
+
+                    b.ToTable("menu_items", (string)null);
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
                 {
                     b.Property<Guid>("Id")
@@ -264,6 +436,47 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("Ingredient");
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.DishIngredient", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Menu.Domain.Dish", "Dish")
+                        .WithMany("Ingredients")
+                        .HasForeignKey("DishId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Dish");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuDay", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Menu.Domain.Menu", "Menu")
+                        .WithMany("Days")
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Menu");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuItem", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Menu.Domain.Dish", "Dish")
+                        .WithMany()
+                        .HasForeignKey("DishId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CateringSaaS.Modules.Menu.Domain.MenuDay", "MenuDay")
+                        .WithMany("Items")
+                        .HasForeignKey("MenuDayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Dish");
+
+                    b.Navigation("MenuDay");
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
                 {
                     b.HasOne("CateringSaaS.Modules.Tenants.Domain.Workspace", "Workspace")
@@ -280,6 +493,21 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("Inventories");
 
                     b.Navigation("StockBatches");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.Dish", b =>
+                {
+                    b.Navigation("Ingredients");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.Menu", b =>
+                {
+                    b.Navigation("Days");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuDay", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Modules\CateringSaaS.Modules.Identity\CateringSaaS.Modules.Identity.csproj" />
     <ProjectReference Include="..\Modules\CateringSaaS.Modules.Tenants\CateringSaaS.Modules.Tenants.csproj" />
     <ProjectReference Include="..\Modules\CateringSaaS.Modules.Inventory\CateringSaaS.Modules.Inventory.csproj" />
+    <ProjectReference Include="..\Modules\CateringSaaS.Modules.Menu\CateringSaaS.Modules.Menu.csproj" />
   </ItemGroup>
 
 </Project>

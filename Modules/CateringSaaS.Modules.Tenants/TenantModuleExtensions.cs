@@ -15,6 +15,7 @@ public static class TenantModuleExtensions
     {
         ModuleConfigurationRegistry.Register(typeof(WorkspaceConfiguration).Assembly);
         services.AddScoped<IWorkspaceLookup, WorkspaceLookup>();
+        services.AddScoped<IClientCompanyLookup, ClientCompanyLookup>();
         services.AddScoped<IClientCompanyService, ClientCompanyService>();
         services.AddScoped<ITenantDataSeeder, TenantDatabaseSeeder>();
         return services;

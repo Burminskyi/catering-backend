@@ -10,6 +10,7 @@
         "dependencies": {
           "CateringSaaS.Modules.Identity": "1.0.0",
           "CateringSaaS.Modules.Inventory": "1.0.0",
+          "CateringSaaS.Modules.Menu": "1.0.0",
           "CateringSaaS.Modules.Ordering": "1.0.0",
           "CateringSaaS.Modules.Tenants": "1.0.0",
           "CateringSaaS.Shared": "1.0.0",
@@ -800,6 +801,17 @@
           }
         }
       },
+      "CateringSaaS.Modules.Menu/1.0.0": {
+        "dependencies": {
+          "CateringSaaS.Shared": "1.0.0"
+        },
+        "runtime": {
+          "CateringSaaS.Modules.Menu.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "CateringSaaS.Modules.Ordering/1.0.0": {
         "dependencies": {
           "CateringSaaS.Shared": "1.0.0"
@@ -1255,6 +1267,11 @@
       "sha512": ""
     },
     "CateringSaaS.Modules.Inventory/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CateringSaaS.Modules.Menu/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

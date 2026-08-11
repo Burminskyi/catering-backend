@@ -1,5 +1,6 @@
 using CateringSaaS.Modules.Identity;
 using CateringSaaS.Modules.Inventory;
+using CateringSaaS.Modules.Menu;
 using CateringSaaS.Modules.Tenants;
 using CateringSaaS.Shared;
 using Microsoft.OpenApi.Models;
@@ -53,6 +54,7 @@ builder.Services.AddSharedPersistence(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddTenantModule();
 builder.Services.AddInventoryModule();
+builder.Services.AddMenuModule();
 
 var app = builder.Build();
 
@@ -76,6 +78,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNo
 app.MapIdentityEndpoints();
 app.MapTenantEndpoints();
 app.MapInventoryEndpoints();
+app.MapMenuEndpoints();
 
 try
 {

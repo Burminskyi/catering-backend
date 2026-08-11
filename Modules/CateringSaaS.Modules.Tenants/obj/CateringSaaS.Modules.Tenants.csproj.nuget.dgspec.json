@@ -10,7 +10,7 @@
         "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
         "projectName": "CateringSaaS.Shared",
         "projectPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\CateringSaaS.Shared.csproj",
-        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d6bc1e3c01d6a71832046ee9675e1f5\\nuget",
+        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d0f5278ee3d3c95802ad1558076e69c\\nuget",
         "outputPath": "C:\\Dev\\Catering\\backend-core\\CateringSaaS.Shared\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -99,7 +99,7 @@
         "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Tenants\\CateringSaaS.Modules.Tenants.csproj",
         "projectName": "CateringSaaS.Modules.Tenants",
         "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Tenants\\CateringSaaS.Modules.Tenants.csproj",
-        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d6bc1e3c01d6a71832046ee9675e1f5\\nuget",
+        "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d0f5278ee3d3c95802ad1558076e69c\\nuget",
         "outputPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Tenants\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [

@@ -708,7 +708,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d6bc1e3c01d6a71832046ee9675e1f5\\nuget": {},
+    "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d0f5278ee3d3c95802ad1558076e69c\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -717,7 +717,7 @@
       "projectUniqueName": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\CateringSaaS.Modules.Ordering.csproj",
       "projectName": "CateringSaaS.Modules.Ordering",
       "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\CateringSaaS.Modules.Ordering.csproj",
-      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d6bc1e3c01d6a71832046ee9675e1f5\\nuget",
+      "packagesPath": "C:\\Users\\burmi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\9d0f5278ee3d3c95802ad1558076e69c\\nuget",
       "outputPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Ordering\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [

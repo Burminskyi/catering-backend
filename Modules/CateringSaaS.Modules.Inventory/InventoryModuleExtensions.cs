@@ -18,6 +18,7 @@ public static class InventoryModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(IngredientConfiguration).Assembly);
 
         services.AddScoped<IInventoryDataSeeder, InventoryDatabaseSeeder>();
+        services.AddScoped<IIngredientCatalog, IngredientCatalog>();
         services.AddScoped<IIngredientService, IngredientService>();
         services.AddScoped<IStockPurchaseService, StockPurchaseService>();
         services.AddScoped<IStockConsumptionService, StockConsumptionService>();

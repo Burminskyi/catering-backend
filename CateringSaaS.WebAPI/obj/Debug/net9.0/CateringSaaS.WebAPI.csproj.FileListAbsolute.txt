@@ -151,3 +151,5 @@ C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\ru\Microsoft.C
 C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\tr\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
 C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\zh-Hans\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
 C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\zh-Hant\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\CateringSaaS.Modules.Menu.dll
+C:\Dev\Catering\backend-core\CateringSaaS.WebAPI\bin\Debug\net9.0\CateringSaaS.Modules.Menu.pdb
