@@ -30,6 +30,7 @@ public static class IdentityModuleExtensions
         services.AddScoped<IClientAdminProvisioner, ClientAdminProvisioner>();
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<IClientEmployeeService, ClientEmployeeService>();
 
         services.AddValidatorsFromAssemblyContaining<CreateStaffMemberValidator>(
             lifetime: ServiceLifetime.Scoped);
@@ -82,6 +83,12 @@ public static class IdentityModuleExtensions
         profile.MapGetProfileEndpoint();
         profile.MapUpdateProfileEndpoint();
         profile.MapChangePasswordEndpoint();
+
+        var clientEmployees = endpoints.MapGroup("/api/client-employees")
+            .RequireAuthorization(policy => policy.RequireRole("ClientAdmin"));
+
+        clientEmployees.MapGetClientEmployeesEndpoint();
+        clientEmployees.MapCreateClientEmployeeEndpoint();
 
         return endpoints;
     }

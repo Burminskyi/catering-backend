@@ -29,4 +29,22 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
             return Guid.TryParse(raw, out var userId) ? userId : Guid.Empty;
         }
     }
+
+    public Guid? ClientCompanyId
+    {
+        get
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user?.Identity?.IsAuthenticated != true)
+            {
+                return null;
+            }
+
+            var raw = user.FindFirstValue("clientCompanyId");
+            return Guid.TryParse(raw, out var clientCompanyId) ? clientCompanyId : null;
+        }
+    }
+
+    public string? Role =>
+        _httpContextAccessor.HttpContext?.User?.FindFirstValue("role");
 }
