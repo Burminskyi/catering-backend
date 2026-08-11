@@ -231,8 +231,8 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.Property<string>("Subdomain")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("SubscriptionExpiresAt")
                         .HasColumnType("timestamp with time zone");

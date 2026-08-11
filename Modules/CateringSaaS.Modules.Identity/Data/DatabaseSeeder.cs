@@ -37,38 +37,58 @@ public sealed class DatabaseSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await _dbContext.Database.MigrateAsync(cancellationToken);
-        await _tenantDataSeeder.SeedAsync(cancellationToken);
-
-        var users = _dbContext.Set<User>();
-        if (!await users.AnyAsync(cancellationToken))
+        try
         {
-            _logger.LogInformation("Seeding mock identity users for frontend testing...");
-
-            var passwordHash = _passwordHasher.Hash(DefaultPassword);
-
-            var seedUsers = new[]
-            {
-                CreateUser("superadmin", "superadmin@test.com", "Super", "Admin", StaffRole.SuperAdmin, null, null, null, passwordHash),
-                CreateUser("manager", "manager@test.com", "Catering", "Manager", StaffRole.WorkspaceAdmin, MockWorkspaceId, null, null, passwordHash),
-                CreateUser("staff", null, "Kitchen", "Staff", StaffRole.Staff, MockWorkspaceId, null, null, passwordHash),
-                CreateUser("driver", null, "Delivery", "Driver", StaffRole.Driver, MockWorkspaceId, null, null, passwordHash),
-                CreateUser("officemanager", "officemanager@test.com", "Office", "Manager", StaffRole.ClientAdmin, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash),
-                CreateUser("employee", "employee@test.com", "Office", "Employee", StaffRole.ClientEmployee, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash)
-            };
-
-            await users.AddRangeAsync(seedUsers, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Seeded {UserCount} users. WorkspaceId={WorkspaceId}, Subdomain={Subdomain}, ClientCompanyId={ClientCompanyId}",
-                seedUsers.Length,
-                MockWorkspaceId,
-                DevelopmentSeedIds.MockSubdomain,
-                MockCompanyId);
+            _logger.LogInformation("Applying EF Core migrations...");
+            await _dbContext.Database.MigrateAsync(cancellationToken);
+            _logger.LogInformation("Migrations applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(
+                ex,
+                "Database migration failed. The API will start, but auth/data endpoints may fail until the schema is fixed.");
+            return;
         }
 
-        await _inventoryDataSeeder.SeedAsync(cancellationToken);
+        try
+        {
+            await _tenantDataSeeder.SeedAsync(cancellationToken);
+
+            var users = _dbContext.Set<User>();
+            if (!await users.AnyAsync(cancellationToken))
+            {
+                _logger.LogInformation("Seeding mock identity users for frontend testing...");
+
+                var passwordHash = _passwordHasher.Hash(DefaultPassword);
+
+                var seedUsers = new[]
+                {
+                    CreateUser("superadmin", "superadmin@test.com", "Super", "Admin", StaffRole.SuperAdmin, null, null, null, passwordHash),
+                    CreateUser("manager", "manager@test.com", "Catering", "Manager", StaffRole.WorkspaceAdmin, MockWorkspaceId, null, null, passwordHash),
+                    CreateUser("staff", null, "Kitchen", "Staff", StaffRole.Staff, MockWorkspaceId, null, null, passwordHash),
+                    CreateUser("driver", null, "Delivery", "Driver", StaffRole.Driver, MockWorkspaceId, null, null, passwordHash),
+                    CreateUser("officemanager", "officemanager@test.com", "Office", "Manager", StaffRole.ClientAdmin, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash),
+                    CreateUser("employee", "employee@test.com", "Office", "Employee", StaffRole.ClientEmployee, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash)
+                };
+
+                await users.AddRangeAsync(seedUsers, cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Seeded {UserCount} users. WorkspaceId={WorkspaceId}, Subdomain={Subdomain}, ClientCompanyId={ClientCompanyId}",
+                    seedUsers.Length,
+                    MockWorkspaceId,
+                    DevelopmentSeedIds.MockSubdomain,
+                    MockCompanyId);
+            }
+
+            await _inventoryDataSeeder.SeedAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Seed data failed after migrations.");
+        }
     }
 
     private static User CreateUser(

@@ -17,7 +17,7 @@ public sealed class WorkspaceConfiguration : IEntityTypeConfiguration<Workspace>
             .IsRequired();
 
         builder.Property(w => w.Subdomain)
-            .HasMaxLength(50)
+            .HasMaxLength(100)
             .IsRequired();
 
         builder.HasIndex(w => w.Subdomain)

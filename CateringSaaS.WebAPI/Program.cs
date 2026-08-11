@@ -69,10 +69,22 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNow }))
+    .WithTags("Health")
+    .AllowAnonymous();
+
 app.MapIdentityEndpoints();
 app.MapTenantEndpoints();
 app.MapInventoryEndpoints();
 
-await app.UseIdentityModuleAsync();
+try
+{
+    await app.UseIdentityModuleAsync();
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    logger.LogCritical(ex, "Startup seeding/migration failed. API will still listen.");
+}
 
 app.Run();
