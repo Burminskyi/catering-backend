@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Identity;
 using CateringSaaS.Modules.Inventory;
 using CateringSaaS.Modules.Menu;
+using CateringSaaS.Modules.Ordering;
 using CateringSaaS.Modules.Tenants;
 using CateringSaaS.Shared;
 using Microsoft.OpenApi.Models;
@@ -55,6 +56,7 @@ builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddTenantModule();
 builder.Services.AddInventoryModule();
 builder.Services.AddMenuModule();
+builder.Services.AddOrderingModule();
 
 var app = builder.Build();
 
@@ -79,6 +81,7 @@ app.MapIdentityEndpoints();
 app.MapTenantEndpoints();
 app.MapInventoryEndpoints();
 app.MapMenuEndpoints();
+app.MapOrderingEndpoints();
 
 try
 {

@@ -352,6 +352,88 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("menu_items", (string)null);
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientCompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PlacedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateOnly>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlacedByUserId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "PlacedByUserId");
+
+                    b.HasIndex("WorkspaceId", "Status");
+
+                    b.HasIndex("WorkspaceId", "ClientCompanyId", "TargetDate");
+
+                    b.ToTable("orders", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.OrderItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuItemId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.ToTable("order_items", (string)null);
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
                 {
                     b.Property<Guid>("Id")
@@ -477,6 +559,17 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("MenuDay");
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.OrderItem", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Ordering.Domain.Order", "Order")
+                        .WithMany("Items")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Tenants.Domain.ClientCompany", b =>
                 {
                     b.HasOne("CateringSaaS.Modules.Tenants.Domain.Workspace", "Workspace")
@@ -506,6 +599,11 @@ namespace CateringSaaS.Shared.Data.Migrations
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuDay", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.Order", b =>
                 {
                     b.Navigation("Items");
                 });

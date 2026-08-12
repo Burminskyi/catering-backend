@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Menu.Data;
 using CateringSaaS.Modules.Menu.Endpoints;
 using CateringSaaS.Modules.Menu.Services;
+using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -16,6 +17,7 @@ public static class MenuModuleExtensions
 
         services.AddScoped<IDishService, DishService>();
         services.AddScoped<IMenuService, MenuService>();
+        services.AddScoped<IMenuItemOrderCatalog, MenuItemOrderCatalog>();
 
         return services;
     }

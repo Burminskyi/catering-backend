@@ -1247,7 +1247,10 @@
         },
         "runtime": {
           "bin/placeholder/CateringSaaS.Modules.Ordering.dll": {}
-        }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       },
       "CateringSaaS.Modules.Tenants/1.0.0": {
         "type": "project",
