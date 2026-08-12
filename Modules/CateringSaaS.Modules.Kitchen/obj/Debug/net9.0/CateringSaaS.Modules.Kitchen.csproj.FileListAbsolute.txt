@@ -1,0 +1,16 @@
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\bin\Debug\net9.0\CateringSaaS.Modules.Kitchen.deps.json
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\bin\Debug\net9.0\CateringSaaS.Modules.Kitchen.dll
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\bin\Debug\net9.0\CateringSaaS.Modules.Kitchen.pdb
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\bin\Debug\net9.0\CateringSaaS.Shared.dll
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\bin\Debug\net9.0\CateringSaaS.Shared.pdb
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.csproj.AssemblyReference.cache
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.GeneratedMSBuildEditorConfig.editorconfig
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.AssemblyInfoInputs.cache
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.AssemblyInfo.cs
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.csproj.CoreCompileInputs.cache
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.sourcelink.json
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\Catering.42AC5595.Up2Date
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.dll
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\refint\CateringSaaS.Modules.Kitchen.dll
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\CateringSaaS.Modules.Kitchen.pdb
+C:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Kitchen\obj\Debug\net9.0\ref\CateringSaaS.Modules.Kitchen.dll

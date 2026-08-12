@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Ordering.Data;
 using CateringSaaS.Modules.Ordering.Endpoints;
 using CateringSaaS.Modules.Ordering.Services;
+using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -16,6 +17,7 @@ public static class OrderingModuleExtensions
 
         services.AddScoped<IClientOrderService, ClientOrderService>();
         services.AddScoped<IWorkspaceOrderService, WorkspaceOrderService>();
+        services.AddScoped<IProductionOrderGateway, ProductionOrderGateway>();
 
         return services;
     }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CateringSaaS.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e667fdd806ace69ac44d049f42e20c90486a314")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+34662c83e0e358530075c6211ae9055cc3939a3f")]
 [assembly: System.Reflection.AssemblyProductAttribute("CateringSaaS.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CateringSaaS.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

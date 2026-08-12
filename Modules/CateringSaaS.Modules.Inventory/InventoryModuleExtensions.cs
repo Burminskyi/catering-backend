@@ -19,6 +19,7 @@ public static class InventoryModuleExtensions
 
         services.AddScoped<IInventoryDataSeeder, InventoryDatabaseSeeder>();
         services.AddScoped<IIngredientCatalog, IngredientCatalog>();
+        services.AddScoped<IInventoryManager, InventoryManager>();
         services.AddScoped<IIngredientService, IngredientService>();
         services.AddScoped<IStockPurchaseService, StockPurchaseService>();
         services.AddScoped<IStockConsumptionService, StockConsumptionService>();

@@ -18,6 +18,7 @@ public static class MenuModuleExtensions
         services.AddScoped<IDishService, DishService>();
         services.AddScoped<IMenuService, MenuService>();
         services.AddScoped<IMenuItemOrderCatalog, MenuItemOrderCatalog>();
+        services.AddScoped<IDishRecipeCatalog, DishRecipeCatalog>();
 
         return services;
     }

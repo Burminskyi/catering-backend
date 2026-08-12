@@ -1220,6 +1220,22 @@
           "Microsoft.AspNetCore.App"
         ]
       },
+      "CateringSaaS.Modules.Kitchen/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "CateringSaaS.Shared": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/CateringSaaS.Modules.Kitchen.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/CateringSaaS.Modules.Kitchen.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
       "CateringSaaS.Modules.Menu/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v9.0",
@@ -3738,6 +3754,11 @@
       "path": "../Modules/CateringSaaS.Modules.Inventory/CateringSaaS.Modules.Inventory.csproj",
       "msbuildProject": "../Modules/CateringSaaS.Modules.Inventory/CateringSaaS.Modules.Inventory.csproj"
     },
+    "CateringSaaS.Modules.Kitchen/1.0.0": {
+      "type": "project",
+      "path": "../Modules/CateringSaaS.Modules.Kitchen/CateringSaaS.Modules.Kitchen.csproj",
+      "msbuildProject": "../Modules/CateringSaaS.Modules.Kitchen/CateringSaaS.Modules.Kitchen.csproj"
+    },
     "CateringSaaS.Modules.Menu/1.0.0": {
       "type": "project",
       "path": "../Modules/CateringSaaS.Modules.Menu/CateringSaaS.Modules.Menu.csproj",
@@ -3763,6 +3784,7 @@
     "net9.0": [
       "CateringSaaS.Modules.Identity >= 1.0.0",
       "CateringSaaS.Modules.Inventory >= 1.0.0",
+      "CateringSaaS.Modules.Kitchen >= 1.0.0",
       "CateringSaaS.Modules.Menu >= 1.0.0",
       "CateringSaaS.Modules.Ordering >= 1.0.0",
       "CateringSaaS.Modules.Tenants >= 1.0.0",
@@ -3813,6 +3835,9 @@
             },
             "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj": {
               "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Inventory\\CateringSaaS.Modules.Inventory.csproj"
+            },
+            "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Kitchen\\CateringSaaS.Modules.Kitchen.csproj": {
+              "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Kitchen\\CateringSaaS.Modules.Kitchen.csproj"
             },
             "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Menu\\CateringSaaS.Modules.Menu.csproj": {
               "projectPath": "C:\\Dev\\Catering\\backend-core\\Modules\\CateringSaaS.Modules.Menu\\CateringSaaS.Modules.Menu.csproj"

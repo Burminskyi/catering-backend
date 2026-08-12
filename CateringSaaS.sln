@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CateringSaaS.Modules.Invent
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CateringSaaS.Modules.Menu", "Modules\CateringSaaS.Modules.Menu\CateringSaaS.Modules.Menu.csproj", "{577CD2A7-4029-4DDE-8CCB-414E75D4858B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CateringSaaS.Modules.Kitchen", "Modules\CateringSaaS.Modules.Kitchen\CateringSaaS.Modules.Kitchen.csproj", "{11653565-EBE3-4DB8-88B6-A0DE4283E94D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,18 @@ Global
 		{577CD2A7-4029-4DDE-8CCB-414E75D4858B}.Release|x64.Build.0 = Release|Any CPU
 		{577CD2A7-4029-4DDE-8CCB-414E75D4858B}.Release|x86.ActiveCfg = Release|Any CPU
 		{577CD2A7-4029-4DDE-8CCB-414E75D4858B}.Release|x86.Build.0 = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|x64.Build.0 = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Debug|x86.Build.0 = Debug|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|x64.ActiveCfg = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|x64.Build.0 = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|x86.ActiveCfg = Release|Any CPU
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -123,5 +137,6 @@ Global
 		{2162BFE2-DAFA-4F27-8CFA-6B3EA69B29BE} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 		{146D1D9D-9BED-44BA-852B-E2DD3909CD64} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 		{577CD2A7-4029-4DDE-8CCB-414E75D4858B} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
+		{11653565-EBE3-4DB8-88B6-A0DE4283E94D} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 	EndGlobalSection
 EndGlobal

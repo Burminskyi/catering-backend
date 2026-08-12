@@ -1,5 +1,6 @@
 using CateringSaaS.Modules.Identity;
 using CateringSaaS.Modules.Inventory;
+using CateringSaaS.Modules.Kitchen;
 using CateringSaaS.Modules.Menu;
 using CateringSaaS.Modules.Ordering;
 using CateringSaaS.Modules.Tenants;
@@ -57,6 +58,7 @@ builder.Services.AddTenantModule();
 builder.Services.AddInventoryModule();
 builder.Services.AddMenuModule();
 builder.Services.AddOrderingModule();
+builder.Services.AddKitchenModule();
 
 var app = builder.Build();
 
@@ -82,6 +84,7 @@ app.MapTenantEndpoints();
 app.MapInventoryEndpoints();
 app.MapMenuEndpoints();
 app.MapOrderingEndpoints();
+app.MapKitchenEndpoints();
 
 try
 {
