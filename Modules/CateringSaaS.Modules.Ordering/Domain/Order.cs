@@ -19,5 +19,9 @@ public class Order
 
     public decimal TotalAmount { get; set; }
 
+    /// <summary>Assigned delivery driver (Identity User id). Null until assigned.</summary>
+    public Guid? DriverId { get; set; }
+
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }
+

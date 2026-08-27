@@ -352,6 +352,131 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("menu_items", (string)null);
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.EmployeeMealRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientCompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateOnly>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "EmployeeId", "TargetDate");
+
+                    b.HasIndex("WorkspaceId", "ClientCompanyId", "TargetDate", "Status");
+
+                    b.ToTable("employee_meal_requests", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.EmployeeMealRequestItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuItemId");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.ToTable("employee_meal_request_items", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.MealReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientCompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuItemId");
+
+                    b.HasIndex("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "ClientCompanyId", "TargetDate");
+
+                    b.HasIndex("WorkspaceId", "EmployeeId", "TargetDate", "MenuItemId")
+                        .IsUnique();
+
+                    b.ToTable("meal_reviews", (string)null);
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.Order", b =>
                 {
                     b.Property<Guid>("Id")
@@ -363,6 +488,9 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DriverId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("PlacedByUserId")
                         .HasColumnType("uuid");
@@ -384,6 +512,8 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DriverId");
+
                     b.HasIndex("PlacedByUserId");
 
                     b.HasIndex("WorkspaceId");
@@ -393,6 +523,8 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.HasIndex("WorkspaceId", "Status");
 
                     b.HasIndex("WorkspaceId", "ClientCompanyId", "TargetDate");
+
+                    b.HasIndex("WorkspaceId", "DriverId", "TargetDate", "Status");
 
                     b.ToTable("orders", (string)null);
                 });
@@ -559,6 +691,17 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("MenuDay");
                 });
 
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.EmployeeMealRequestItem", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Ordering.Domain.EmployeeMealRequest", "Request")
+                        .WithMany("Items")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.OrderItem", b =>
                 {
                     b.HasOne("CateringSaaS.Modules.Ordering.Domain.Order", "Order")
@@ -599,6 +742,11 @@ namespace CateringSaaS.Shared.Data.Migrations
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.MenuDay", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Ordering.Domain.EmployeeMealRequest", b =>
                 {
                     b.Navigation("Items");
                 });

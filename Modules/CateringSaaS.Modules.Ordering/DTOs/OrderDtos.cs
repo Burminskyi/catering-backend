@@ -18,6 +18,7 @@ public sealed record OrderResponse(
     Guid WorkspaceId,
     Guid ClientCompanyId,
     Guid PlacedByUserId,
+    Guid? DriverId,
     DateOnly TargetDate,
     DateTime CreatedAt,
     string Status,
@@ -28,6 +29,7 @@ public sealed record OrderListItemResponse(
     Guid Id,
     Guid ClientCompanyId,
     Guid PlacedByUserId,
+    Guid? DriverId,
     DateOnly TargetDate,
     DateTime CreatedAt,
     string Status,
@@ -35,3 +37,4 @@ public sealed record OrderListItemResponse(
     int ItemCount);
 
 public sealed record UpdateOrderStatusRequest(string Status);
+

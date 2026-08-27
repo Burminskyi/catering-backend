@@ -32,10 +32,15 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => new { o.WorkspaceId, o.Status });
         builder.HasIndex(o => new { o.WorkspaceId, o.PlacedByUserId });
         builder.HasIndex(o => o.PlacedByUserId);
+        builder.HasIndex(o => new { o.WorkspaceId, o.DriverId, o.TargetDate, o.Status });
+        builder.HasIndex(o => o.DriverId);
 
+        // DriverId is a Guid reference only (no cross-module FK) so driver user deletes
+        // do not cascade onto historical orders.
         builder.HasMany(o => o.Items)
             .WithOne(i => i.Order)
             .HasForeignKey(i => i.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+

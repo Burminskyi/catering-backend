@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CateringSaaS.WebAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+34662c83e0e358530075c6211ae9055cc3939a3f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1c065dca6494732bbb82d335637d2d62f30166bb")]
 [assembly: System.Reflection.AssemblyProductAttribute("CateringSaaS.WebAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CateringSaaS.WebAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -14,3 +14,6 @@ c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Ordering\obj\Debug\net
 c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Ordering\obj\Debug\net9.0\refint\CateringSaaS.Modules.Ordering.dll
 c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Ordering\obj\Debug\net9.0\CateringSaaS.Modules.Ordering.pdb
 c:\Dev\Catering\backend-core\Modules\CateringSaaS.Modules.Ordering\obj\Debug\net9.0\ref\CateringSaaS.Modules.Ordering.dll
+c:\Dev\Catering\backend-core\.build-out\ordering\CateringSaaS.Modules.Ordering.deps.json
+c:\Dev\Catering\backend-core\.build-out\ordering\CateringSaaS.Modules.Ordering.dll
+c:\Dev\Catering\backend-core\.build-out\ordering\CateringSaaS.Modules.Ordering.pdb
