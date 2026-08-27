@@ -89,7 +89,7 @@ public sealed class DeliveryService : IDeliveryService
             .Where(o => o.WorkspaceId == workspaceId
                 && o.DriverId == driverId
                 && o.TargetDate == today
-                && (o.Status == OrderStatus.InProduction || o.Status == OrderStatus.Delivered))
+                && (o.Status == OrderStatus.ReadyForDelivery || o.Status == OrderStatus.Delivered))
             .OrderBy(o => o.Status)
             .ThenBy(o => o.ClientCompanyId)
             .Select(o => new OrderListItemResponse(
@@ -131,10 +131,10 @@ public sealed class DeliveryService : IDeliveryService
             throw new OrderServiceException("Order is already delivered.", StatusCodes.Status409Conflict);
         }
 
-        if (order.Status != OrderStatus.InProduction)
+        if (order.Status != OrderStatus.ReadyForDelivery)
         {
             throw new OrderServiceException(
-                "Only orders in InProduction can be marked as Delivered.",
+                "Only orders in ReadyForDelivery can be marked as Delivered.",
                 StatusCodes.Status409Conflict);
         }
 

@@ -18,8 +18,15 @@ public interface IInventoryManager
         IReadOnlyDictionary<Guid, decimal> requiredIngredients,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyDictionary<Guid, decimal>> GetAvailableQuantitiesAsync(
+        Guid workspaceId,
+        IEnumerable<Guid> ingredientIds,
+        CancellationToken cancellationToken = default);
+
     Task DeductStockFifoAsync(
         Guid workspaceId,
         IReadOnlyDictionary<Guid, decimal> ingredientsToDeduct,
+        string? source = null,
+        string? reason = null,
         CancellationToken cancellationToken = default);
 }

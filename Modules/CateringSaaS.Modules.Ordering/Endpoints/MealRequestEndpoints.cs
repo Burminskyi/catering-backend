@@ -109,6 +109,13 @@ public static class MealReviewEndpoints
             .WithTags("ClientPortal");
     }
 
+    public static RouteHandlerBuilder MapGetWorkspaceReviewsEndpoint(this IEndpointRouteBuilder endpoints)
+    {
+        return endpoints.MapGet("/", HandleGetWorkspaceAsync)
+            .WithName("GetWorkspaceReviews")
+            .WithTags("Reviews");
+    }
+
     private static async Task<IResult> HandleCreateAsync(
         CreateMealReviewRequest request,
         IMealReviewService service,
@@ -118,6 +125,22 @@ public static class MealReviewEndpoints
         {
             var created = await service.CreateAsync(request, cancellationToken);
             return Results.Created($"/api/client-portal/reviews/{created.Id}", created);
+        }
+        catch (OrderServiceException ex)
+        {
+            return OrderEndpointResults.FromException(ex);
+        }
+    }
+
+    private static async Task<IResult> HandleGetWorkspaceAsync(
+        bool? isReclamation,
+        IMealReviewService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var reviews = await service.GetForWorkspaceAsync(isReclamation, cancellationToken);
+            return Results.Ok(reviews);
         }
         catch (OrderServiceException ex)
         {

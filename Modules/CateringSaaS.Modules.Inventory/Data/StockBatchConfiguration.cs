@@ -18,6 +18,9 @@ public sealed class StockBatchConfiguration : IEntityTypeConfiguration<StockBatc
         builder.Property(b => b.IngredientId)
             .IsRequired();
 
+        builder.Property(b => b.SupplierId)
+            .IsRequired();
+
         builder.Property(b => b.InitialQuantity)
             .HasPrecision(18, 4)
             .IsRequired();
@@ -35,8 +38,12 @@ public sealed class StockBatchConfiguration : IEntityTypeConfiguration<StockBatc
             .IsRequired();
 
         builder.HasIndex(b => new { b.WorkspaceId, b.IngredientId, b.ReceivedAt });
-
-        // Workspace is owned by Tenants module — store FK id only (no cross-module navigation).
         builder.HasIndex(b => b.WorkspaceId);
+        builder.HasIndex(b => b.SupplierId);
+
+        builder.HasOne(b => b.Supplier)
+            .WithMany()
+            .HasForeignKey(b => b.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

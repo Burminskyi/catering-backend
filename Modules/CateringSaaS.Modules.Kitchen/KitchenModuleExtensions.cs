@@ -24,6 +24,7 @@ public static class KitchenModuleExtensions
 
         kitchen.MapGetProductionPlanEndpoint();
         kitchen.MapExecuteProductionPlanEndpoint();
+        kitchen.MapGetShoppingListEndpoint();
 
         return app;
     }

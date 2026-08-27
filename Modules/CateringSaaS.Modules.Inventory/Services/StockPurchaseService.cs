@@ -1,3 +1,4 @@
+using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Modules.Inventory.DTOs;
 using CateringSaaS.Shared.Data;
@@ -32,12 +33,29 @@ public sealed class StockPurchaseService : IStockPurchaseService
     {
         var workspaceId = RequireWorkspace();
 
+        if (request.SupplierId == Guid.Empty)
+        {
+            throw new ServiceException("SupplierId is required.");
+        }
+
         if (request.TotalCost < 0)
         {
             throw new ServiceException("TotalCost cannot be negative.");
         }
 
         var ingredient = await ResolveAccessibleIngredientAsync(request.IngredientId, workspaceId, cancellationToken);
+
+        var supplier = await _dbContext.Set<Supplier>()
+            .FirstOrDefaultAsync(
+                s => s.Id == request.SupplierId && s.WorkspaceId == workspaceId && s.IsActive,
+                cancellationToken);
+
+        if (supplier is null)
+        {
+            throw new ServiceException(
+                $"Active supplier '{request.SupplierId}' was not found.",
+                StatusCodes.Status404NotFound);
+        }
 
         decimal quantityInBase;
         try
@@ -60,6 +78,7 @@ public sealed class StockPurchaseService : IStockPurchaseService
             Id = Guid.NewGuid(),
             WorkspaceId = workspaceId,
             IngredientId = ingredient.Id,
+            SupplierId = supplier.Id,
             InitialQuantity = quantityInBase,
             CurrentQuantity = quantityInBase,
             CostPrice = request.TotalCost,
@@ -87,6 +106,22 @@ public sealed class StockPurchaseService : IStockPurchaseService
             inventory.TotalQuantity += quantityInBase;
         }
 
+        await _dbContext.Set<InventoryMovement>().AddAsync(
+            new InventoryMovement
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspaceId,
+                IngredientId = ingredient.Id,
+                Type = InventoryMovementType.Purchase,
+                Quantity = quantityInBase,
+                SignedQuantity = quantityInBase,
+                TotalCost = request.TotalCost,
+                Source = supplier.Name,
+                Reason = null,
+                CreatedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
 
@@ -96,6 +131,8 @@ public sealed class StockPurchaseService : IStockPurchaseService
             batch.Id,
             ingredient.Id,
             ingredient.Name,
+            supplier.Id,
+            supplier.Name,
             quantityInBase,
             ingredient.BaseUnit.ToString(),
             request.TotalCost,

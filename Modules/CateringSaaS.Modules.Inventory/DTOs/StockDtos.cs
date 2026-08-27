@@ -2,6 +2,7 @@ namespace CateringSaaS.Modules.Inventory.DTOs;
 
 public sealed record AddStockPurchaseRequest(
     Guid IngredientId,
+    Guid SupplierId,
     decimal Quantity,
     string Unit,
     decimal TotalCost,
@@ -11,6 +12,8 @@ public sealed record StockPurchaseResponse(
     Guid BatchId,
     Guid IngredientId,
     string IngredientName,
+    Guid SupplierId,
+    string SupplierName,
     decimal QuantityInBaseUnits,
     string BaseUnit,
     decimal TotalCost,

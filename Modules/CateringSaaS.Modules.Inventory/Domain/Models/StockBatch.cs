@@ -13,6 +13,10 @@ public class StockBatch
 
     public Ingredient Ingredient { get; set; } = null!;
 
+    public Guid SupplierId { get; set; }
+
+    public Supplier Supplier { get; set; } = null!;
+
     public decimal InitialQuantity { get; set; }
 
     public decimal CurrentQuantity { get; set; }

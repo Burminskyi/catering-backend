@@ -1,3 +1,4 @@
+using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Modules.Inventory.DTOs;
 using CateringSaaS.Shared.Data;
@@ -67,7 +68,6 @@ public sealed class StockConsumptionService : IStockConsumptionService
                 StatusCodes.Status409Conflict);
         }
 
-        // FIFO: oldest batches first
         var batches = await _dbContext.Set<StockBatch>()
             .Where(b => b.IngredientId == ingredient.Id && b.CurrentQuantity > 0)
             .OrderBy(b => b.ReceivedAt)
@@ -106,6 +106,24 @@ public sealed class StockConsumptionService : IStockConsumptionService
         }
 
         inventory.TotalQuantity -= quantityInBase;
+
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+
+        await _dbContext.Set<InventoryMovement>().AddAsync(
+            new InventoryMovement
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspaceId,
+                IngredientId = ingredient.Id,
+                Type = InventoryMovementType.Consume,
+                Quantity = quantityInBase,
+                SignedQuantity = -quantityInBase,
+                TotalCost = totalCost,
+                Source = "Manual consume",
+                Reason = reason,
+                CreatedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);

@@ -57,6 +57,8 @@ public sealed record MealReviewResponse(
     Guid MenuItemId,
     int Rating,
     string? Comment,
+    string? PhotoUrl,
+    bool IsReclamation,
     DateTime CreatedAt);
 
 public sealed record AssignDriverRequest(Guid DriverId);

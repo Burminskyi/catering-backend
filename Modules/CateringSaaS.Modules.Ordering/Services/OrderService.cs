@@ -32,6 +32,10 @@ public interface IWorkspaceOrderService
         Guid orderId,
         UpdateOrderStatusRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<OrderListItemResponse> MarkReadyForDeliveryAsync(
+        Guid orderId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class ClientOrderService : IClientOrderService
@@ -361,6 +365,43 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
         }
 
         order.Status = newStatus;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new OrderListItemResponse(
+            order.Id,
+            order.ClientCompanyId,
+            order.PlacedByUserId,
+            order.DriverId,
+            order.TargetDate,
+            order.CreatedAt,
+            order.Status.ToString(),
+            order.TotalAmount,
+            order.Items.Count);
+    }
+
+    public async Task<OrderListItemResponse> MarkReadyForDeliveryAsync(
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        var workspaceId = RequireWorkspace();
+
+        var order = await _dbContext.Set<Order>()
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.WorkspaceId == workspaceId, cancellationToken);
+
+        if (order is null)
+        {
+            throw new OrderServiceException($"Order '{orderId}' was not found.", StatusCodes.Status404NotFound);
+        }
+
+        if (order.Status != OrderStatus.InProduction)
+        {
+            throw new OrderServiceException(
+                "Only orders in InProduction can be marked ReadyForDelivery.",
+                StatusCodes.Status409Conflict);
+        }
+
+        order.Status = OrderStatus.ReadyForDelivery;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new OrderListItemResponse(

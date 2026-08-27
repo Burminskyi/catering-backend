@@ -54,7 +54,13 @@ public static class OrderingModuleExtensions
 
         orders.MapGetWorkspaceOrdersEndpoint();
         orders.MapUpdateOrderStatusEndpoint();
+        orders.MapMarkOrderReadyEndpoint();
         orders.MapAssignDriverEndpoint();
+
+        var reviews = app.MapGroup("/api/reviews")
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager"));
+
+        reviews.MapGetWorkspaceReviewsEndpoint();
 
         var delivery = app.MapGroup("/api/delivery")
             .RequireAuthorization(policy => policy.RequireRole("Driver"));

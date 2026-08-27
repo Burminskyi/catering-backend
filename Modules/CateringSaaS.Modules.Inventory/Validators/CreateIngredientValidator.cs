@@ -28,6 +28,7 @@ public sealed class AddStockPurchaseValidator : AbstractValidator<AddStockPurcha
     public AddStockPurchaseValidator()
     {
         RuleFor(x => x.IngredientId).NotEmpty();
+        RuleFor(x => x.SupplierId).NotEmpty();
         RuleFor(x => x.Quantity).GreaterThan(0);
         RuleFor(x => x.Unit).NotEmpty();
         RuleFor(x => x.TotalCost).GreaterThanOrEqualTo(0);
@@ -41,5 +42,27 @@ public sealed class ConsumeStockValidator : AbstractValidator<ConsumeStockReques
         RuleFor(x => x.IngredientId).NotEmpty();
         RuleFor(x => x.Quantity).GreaterThan(0);
         RuleFor(x => x.Unit).NotEmpty();
+    }
+}
+
+public sealed class CreateSupplierValidator : AbstractValidator<CreateSupplierRequest>
+{
+    public CreateSupplierValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Phone).MaximumLength(64);
+        RuleFor(x => x.Email).MaximumLength(256);
+        RuleFor(x => x.Notes).MaximumLength(2000);
+    }
+}
+
+public sealed class UpdateSupplierValidator : AbstractValidator<UpdateSupplierRequest>
+{
+    public UpdateSupplierValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Phone).MaximumLength(64);
+        RuleFor(x => x.Email).MaximumLength(256);
+        RuleFor(x => x.Notes).MaximumLength(2000);
     }
 }

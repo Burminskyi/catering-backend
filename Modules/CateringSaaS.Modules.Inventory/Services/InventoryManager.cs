@@ -1,3 +1,4 @@
+using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
@@ -59,11 +60,33 @@ public sealed class InventoryManager : IInventoryManager
         return new StockAvailabilityResult(shortages.Count == 0, shortages);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetAvailableQuantitiesAsync(
+        Guid workspaceId,
+        IEnumerable<Guid> ingredientIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = ingredientIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, decimal>();
+        }
+
+        return await _dbContext.Set<InventoryEntity>()
+            .AsNoTracking()
+            .Where(i => i.WorkspaceId == workspaceId && ids.Contains(i.IngredientId))
+            .ToDictionaryAsync(i => i.IngredientId, i => i.TotalQuantity, cancellationToken);
+    }
+
     public async Task DeductStockFifoAsync(
         Guid workspaceId,
         IReadOnlyDictionary<Guid, decimal> ingredientsToDeduct,
+        string? source = null,
+        string? reason = null,
         CancellationToken cancellationToken = default)
     {
+        var movementSource = string.IsNullOrWhiteSpace(source) ? "Kitchen production" : source.Trim();
+        var movementReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+
         foreach (var (ingredientId, quantityInBase) in ingredientsToDeduct)
         {
             if (quantityInBase <= 0)
@@ -106,6 +129,7 @@ public sealed class InventoryManager : IInventoryManager
                 .ToListAsync(cancellationToken);
 
             var remaining = quantityInBase;
+            decimal totalCost = 0m;
 
             foreach (var batch in batches)
             {
@@ -115,6 +139,11 @@ public sealed class InventoryManager : IInventoryManager
                 }
 
                 var take = Math.Min(batch.CurrentQuantity, remaining);
+                var unitCost = batch.InitialQuantity > 0
+                    ? batch.CostPrice / batch.InitialQuantity
+                    : 0m;
+                totalCost += Math.Round(unitCost * take, 4, MidpointRounding.AwayFromZero);
+
                 batch.CurrentQuantity -= take;
                 remaining -= take;
             }
@@ -127,6 +156,22 @@ public sealed class InventoryManager : IInventoryManager
             }
 
             inventory.TotalQuantity -= quantityInBase;
+
+            await _dbContext.Set<InventoryMovement>().AddAsync(
+                new InventoryMovement
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    IngredientId = ingredientId,
+                    Type = InventoryMovementType.Consume,
+                    Quantity = quantityInBase,
+                    SignedQuantity = -quantityInBase,
+                    TotalCost = totalCost,
+                    Source = movementSource,
+                    Reason = movementReason,
+                    CreatedAt = DateTime.UtcNow
+                },
+                cancellationToken);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -98,6 +98,13 @@ public static class WorkspaceOrderEndpoints
             .WithTags("Orders");
     }
 
+    public static RouteHandlerBuilder MapMarkOrderReadyEndpoint(this IEndpointRouteBuilder endpoints)
+    {
+        return endpoints.MapPut("/{id:guid}/ready", HandleMarkReadyAsync)
+            .WithName("MarkOrderReadyForDelivery")
+            .WithTags("Orders");
+    }
+
     private static async Task<IResult> HandleGetAsync(
         DateOnly? targetDate,
         Guid? clientCompanyId,
@@ -129,6 +136,22 @@ public static class WorkspaceOrderEndpoints
         try
         {
             var updated = await orderService.UpdateStatusAsync(id, request, cancellationToken);
+            return Results.Ok(updated);
+        }
+        catch (OrderServiceException ex)
+        {
+            return OrderEndpointResults.FromException(ex);
+        }
+    }
+
+    private static async Task<IResult> HandleMarkReadyAsync(
+        Guid id,
+        IWorkspaceOrderService orderService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await orderService.MarkReadyForDeliveryAsync(id, cancellationToken);
             return Results.Ok(updated);
         }
         catch (OrderServiceException ex)

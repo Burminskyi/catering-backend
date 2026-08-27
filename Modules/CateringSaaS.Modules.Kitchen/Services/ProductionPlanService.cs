@@ -16,6 +16,10 @@ public interface IProductionPlanService
     Task<ExecuteProductionPlanResponse> ExecutePlanAsync(
         ExecuteProductionPlanRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<ShoppingListResponse> GetShoppingListAsync(
+        DateOnly targetDate,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class ProductionPlanService : IProductionPlanService
@@ -106,7 +110,9 @@ public sealed class ProductionPlanService : IProductionPlanService
             await _inventoryManager.DeductStockFifoAsync(
                 workspaceId,
                 requirements.IngredientTotals,
-                cancellationToken);
+                source: $"Kitchen plan {request.TargetDate:yyyy-MM-dd}",
+                reason: "Production execution",
+                cancellationToken: cancellationToken);
 
             var ordersUpdated = await _orderGateway.MarkOrdersInProductionAsync(
                 workspaceId,
@@ -130,6 +136,47 @@ public sealed class ProductionPlanService : IProductionPlanService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<ShoppingListResponse> GetShoppingListAsync(
+        DateOnly targetDate,
+        CancellationToken cancellationToken = default)
+    {
+        var workspaceId = RequireWorkspace();
+        var requirements = await BuildRequirementsAsync(workspaceId, targetDate, cancellationToken);
+
+        if (requirements.IngredientTotals.Count == 0)
+        {
+            return new ShoppingListResponse(targetDate, []);
+        }
+
+        var ingredientIds = requirements.IngredientTotals.Keys.ToArray();
+        var inventories = await _inventoryManager.GetAvailableQuantitiesAsync(
+            workspaceId,
+            ingredientIds,
+            cancellationToken);
+
+        var catalog = await _ingredientCatalog.GetByIdsAsync(ingredientIds, workspaceId, cancellationToken);
+
+        var items = requirements.IngredientTotals
+            .OrderBy(i => catalog.TryGetValue(i.Key, out var info) ? info.Name : i.Key.ToString())
+            .Select(i =>
+            {
+                catalog.TryGetValue(i.Key, out var info);
+                inventories.TryGetValue(i.Key, out var available);
+                var required = i.Value;
+                var toBuy = Math.Max(0m, required - available);
+                return new ShoppingListItemResponse(
+                    i.Key,
+                    info?.Name ?? "Unknown",
+                    required,
+                    available,
+                    toBuy,
+                    info?.BaseUnit ?? "Unknown");
+            })
+            .ToList();
+
+        return new ShoppingListResponse(targetDate, items);
     }
 
     private async Task<ProductionRequirements> BuildRequirementsAsync(

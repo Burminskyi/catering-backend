@@ -12,6 +12,10 @@ public interface IMealReviewService
     Task<MealReviewResponse> CreateAsync(
         CreateMealReviewRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MealReviewResponse>> GetForWorkspaceAsync(
+        bool? isReclamation,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class MealReviewService : IMealReviewService
@@ -131,22 +135,47 @@ public sealed class MealReviewService : IMealReviewService
             MenuItemId = request.MenuItemId,
             Rating = request.Rating,
             Comment = comment,
+            PhotoUrl = null,
+            IsReclamation = request.Rating <= 2,
             CreatedAt = DateTime.UtcNow
         };
 
         await _dbContext.Set<MealReview>().AddAsync(review, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new MealReviewResponse(
-            review.Id,
-            review.WorkspaceId,
-            review.ClientCompanyId,
-            review.EmployeeId,
-            review.TargetDate,
-            review.MenuItemId,
-            review.Rating,
-            review.Comment,
-            review.CreatedAt);
+        return ToResponse(review);
+    }
+
+    public async Task<IReadOnlyList<MealReviewResponse>> GetForWorkspaceAsync(
+        bool? isReclamation,
+        CancellationToken cancellationToken = default)
+    {
+        var workspaceId = RequireWorkspace();
+
+        var query = _dbContext.Set<MealReview>()
+            .AsNoTracking()
+            .Where(r => r.WorkspaceId == workspaceId);
+
+        if (isReclamation is bool flag)
+        {
+            query = query.Where(r => r.IsReclamation == flag);
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new MealReviewResponse(
+                r.Id,
+                r.WorkspaceId,
+                r.ClientCompanyId,
+                r.EmployeeId,
+                r.TargetDate,
+                r.MenuItemId,
+                r.Rating,
+                r.Comment,
+                r.PhotoUrl,
+                r.IsReclamation,
+                r.CreatedAt))
+            .ToListAsync(cancellationToken);
     }
 
     private void EnsureClientEmployee()
@@ -194,4 +223,18 @@ public sealed class MealReviewService : IMealReviewService
 
         return _currentUser.UserId;
     }
+
+    private static MealReviewResponse ToResponse(MealReview review) =>
+        new(
+            review.Id,
+            review.WorkspaceId,
+            review.ClientCompanyId,
+            review.EmployeeId,
+            review.TargetDate,
+            review.MenuItemId,
+            review.Rating,
+            review.Comment,
+            review.PhotoUrl,
+            review.IsReclamation,
+            review.CreatedAt);
 }

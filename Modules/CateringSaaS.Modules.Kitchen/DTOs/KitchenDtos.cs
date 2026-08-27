@@ -26,3 +26,15 @@ public sealed record StockShortageResponse(
     decimal RequiredQuantity,
     decimal AvailableQuantity,
     string Unit);
+
+public sealed record ShoppingListItemResponse(
+    Guid IngredientId,
+    string IngredientName,
+    decimal RequiredQuantity,
+    decimal AvailableQuantity,
+    decimal ToBuyQuantity,
+    string Unit);
+
+public sealed record ShoppingListResponse(
+    DateOnly TargetDate,
+    IReadOnlyList<ShoppingListItemResponse> Items);
