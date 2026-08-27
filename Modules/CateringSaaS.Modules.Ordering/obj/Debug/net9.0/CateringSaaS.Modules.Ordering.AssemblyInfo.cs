@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CateringSaaS.Modules.Ordering")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c12dcfb52dee7810811d90c5616f2e5fcf816968")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d9432985ca30b1247c85b13429183f4692fec62c")]
 [assembly: System.Reflection.AssemblyProductAttribute("CateringSaaS.Modules.Ordering")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CateringSaaS.Modules.Ordering")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

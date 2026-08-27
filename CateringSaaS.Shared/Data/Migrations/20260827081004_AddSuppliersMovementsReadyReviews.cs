@@ -98,7 +98,7 @@ namespace CateringSaaS.Shared.Data.Migrations
             migrationBuilder.Sql("""
                 UPDATE meal_reviews
                 SET "IsReclamation" = TRUE
-                WHERE "Rating" <= 2;
+                WHERE "Rating" <= 3;
                 """);
 
             migrationBuilder.AddColumn<string>(

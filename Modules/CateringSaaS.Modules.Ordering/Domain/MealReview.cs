@@ -23,7 +23,7 @@ public class MealReview
     /// <summary>Reserved for future photo uploads; currently always null from API.</summary>
     public string? PhotoUrl { get; set; }
 
-    /// <summary>True when Rating &lt;= 2 (complaint / reclamation).</summary>
+    /// <summary>True when Rating &lt;= 3 (complaint / reclamation).</summary>
     public bool IsReclamation { get; set; }
 
     public DateTime CreatedAt { get; set; }

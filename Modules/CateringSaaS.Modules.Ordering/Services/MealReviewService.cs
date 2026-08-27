@@ -136,7 +136,7 @@ public sealed class MealReviewService : IMealReviewService
             Rating = request.Rating,
             Comment = comment,
             PhotoUrl = null,
-            IsReclamation = request.Rating <= 2,
+            IsReclamation = request.Rating <= 3,
             CreatedAt = DateTime.UtcNow
         };
 
