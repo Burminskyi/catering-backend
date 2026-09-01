@@ -70,8 +70,14 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
-app.UseHttpsRedirection();
+// CORS must run before HTTPS redirect — otherwise browser preflight (OPTIONS)
+// gets redirected and the SPA reports a CORS failure.
 app.UseCors("AllowAll");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
