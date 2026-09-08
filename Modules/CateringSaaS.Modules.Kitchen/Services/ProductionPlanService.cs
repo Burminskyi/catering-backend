@@ -107,13 +107,8 @@ public sealed class ProductionPlanService : IProductionPlanService
                     StatusCodes.Status409Conflict);
             }
 
-            await _inventoryManager.DeductStockFifoAsync(
-                workspaceId,
-                requirements.IngredientTotals,
-                source: $"Kitchen plan {request.TargetDate:yyyy-MM-dd}",
-                reason: "Production execution",
-                cancellationToken: cancellationToken);
-
+            // Stock is consumed later at ReadyForDelivery (order-level FIFO), not here.
+            // Execute only advances Confirmed → InProduction after an availability check.
             var ordersUpdated = await _orderGateway.MarkOrdersInProductionAsync(
                 workspaceId,
                 request.TargetDate,
@@ -121,7 +116,7 @@ public sealed class ProductionPlanService : IProductionPlanService
 
             await transaction.CommitAsync(cancellationToken);
 
-            var ingredientsDeducted = await MapIngredientResponsesAsync(
+            var ingredientsRequired = await MapIngredientResponsesAsync(
                 workspaceId,
                 requirements.IngredientTotals,
                 cancellationToken);
@@ -129,7 +124,7 @@ public sealed class ProductionPlanService : IProductionPlanService
             return new ExecuteProductionPlanResponse(
                 request.TargetDate,
                 ordersUpdated,
-                ingredientsDeducted);
+                ingredientsRequired);
         }
         catch
         {

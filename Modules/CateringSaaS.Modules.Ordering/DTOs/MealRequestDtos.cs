@@ -13,6 +13,20 @@ public sealed record MealRequestItemResponse(
     decimal UnitPrice,
     decimal Subtotal);
 
+/// <summary>
+/// Line in meal-request list responses.
+/// <c>ItemCount</c> on the parent = <c>Items.Count</c> (number of lines, not sum of portions).
+/// <c>Price</c> is unit selling price at request time; <c>LineTotal</c> = price * quantity.
+/// </summary>
+public sealed record MealRequestListLineResponse(
+    Guid Id,
+    Guid MenuItemId,
+    Guid? DishId,
+    string DishName,
+    int Quantity,
+    decimal Price,
+    decimal LineTotal);
+
 public sealed record MealRequestResponse(
     Guid Id,
     Guid WorkspaceId,
@@ -27,11 +41,13 @@ public sealed record MealRequestResponse(
 public sealed record MealRequestListItemResponse(
     Guid Id,
     Guid EmployeeId,
+    string? EmployeeName,
     DateOnly TargetDate,
     string Status,
     decimal TotalAmount,
     DateTime CreatedAt,
-    int ItemCount);
+    int ItemCount,
+    IReadOnlyList<MealRequestListLineResponse> Items);
 
 public sealed record ConsolidateMealRequestsRequest(DateOnly TargetDate);
 

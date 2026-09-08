@@ -10,8 +10,14 @@ public class OrderItem
 
     public Order Order { get; set; } = null!;
 
-    /// <summary>References Menu MenuItem by id (no cross-module EF nav).</summary>
+    /// <summary>References Menu MenuItem by id — no cross-module EF nav.</summary>
     public Guid MenuItemId { get; set; }
+
+    /// <summary>Dish id snapshot at order time (for stock consume / UI).</summary>
+    public Guid? DishId { get; set; }
+
+    /// <summary>Dish name snapshot at order time.</summary>
+    public string DishName { get; set; } = string.Empty;
 
     public int Quantity { get; set; }
 

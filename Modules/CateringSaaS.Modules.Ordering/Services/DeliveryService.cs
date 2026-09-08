@@ -73,7 +73,7 @@ public sealed class DeliveryService : IDeliveryService
         order.DriverId = request.DriverId;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return ToListItem(order);
+        return OrderDtoMapper.ToListItem(order);
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetMyOrdersAsync(
@@ -84,25 +84,18 @@ public sealed class DeliveryService : IDeliveryService
         var driverId = RequireUserId();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        return await _dbContext.Set<Order>()
+        var orders = await _dbContext.Set<Order>()
             .AsNoTracking()
+            .Include(o => o.Items)
             .Where(o => o.WorkspaceId == workspaceId
                 && o.DriverId == driverId
                 && o.TargetDate == today
                 && (o.Status == OrderStatus.ReadyForDelivery || o.Status == OrderStatus.Delivered))
             .OrderBy(o => o.Status)
             .ThenBy(o => o.ClientCompanyId)
-            .Select(o => new OrderListItemResponse(
-                o.Id,
-                o.ClientCompanyId,
-                o.PlacedByUserId,
-                o.DriverId,
-                o.TargetDate,
-                o.CreatedAt,
-                o.Status.ToString(),
-                o.TotalAmount,
-                o.Items.Count))
             .ToListAsync(cancellationToken);
+
+        return orders.Select(OrderDtoMapper.ToListItem).ToList();
     }
 
     public async Task<OrderListItemResponse> MarkDeliveredAsync(
@@ -146,7 +139,7 @@ public sealed class DeliveryService : IDeliveryService
             order.TargetDate,
             cancellationToken);
 
-        return ToListItem(order);
+        return OrderDtoMapper.ToListItem(order);
     }
 
     private void EnsureDriver()
@@ -182,16 +175,4 @@ public sealed class DeliveryService : IDeliveryService
 
         return _currentUser.UserId;
     }
-
-    private static OrderListItemResponse ToListItem(Order order) =>
-        new(
-            order.Id,
-            order.ClientCompanyId,
-            order.PlacedByUserId,
-            order.DriverId,
-            order.TargetDate,
-            order.CreatedAt,
-            order.Status.ToString(),
-            order.TotalAmount,
-            order.Items.Count);
 }

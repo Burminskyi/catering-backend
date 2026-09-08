@@ -16,6 +16,10 @@ public sealed class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(i => i.OrderId).IsRequired();
         builder.Property(i => i.MenuItemId).IsRequired();
 
+        builder.Property(i => i.DishName)
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(i => i.Quantity).IsRequired();
 
         builder.Property(i => i.UnitPrice)
@@ -29,5 +33,6 @@ public sealed class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.HasIndex(i => i.WorkspaceId);
         builder.HasIndex(i => i.OrderId);
         builder.HasIndex(i => i.MenuItemId);
+        builder.HasIndex(i => i.DishId);
     }
 }

@@ -3,6 +3,7 @@ using System;
 using CateringSaaS.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CateringSaaS.Shared.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260908054253_AddMealRequestItemDishSnapshot")]
+    partial class AddMealRequestItemDishSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -618,9 +621,6 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<DateTime?>("StockConsumedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateOnly>("TargetDate")
                         .HasColumnType("date");
 
@@ -643,8 +643,6 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.HasIndex("WorkspaceId", "Status");
 
-                    b.HasIndex("WorkspaceId", "StockConsumedAt");
-
                     b.HasIndex("WorkspaceId", "ClientCompanyId", "TargetDate");
 
                     b.HasIndex("WorkspaceId", "DriverId", "TargetDate", "Status");
@@ -657,14 +655,6 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<Guid?>("DishId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("DishName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid>("MenuItemId")
                         .HasColumnType("uuid");
@@ -687,8 +677,6 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DishId");
 
                     b.HasIndex("MenuItemId");
 

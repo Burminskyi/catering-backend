@@ -231,13 +231,25 @@ public sealed class DishService : IDishService
 
     private static DishCategory ParseCategory(string category)
     {
-        if (!Enum.TryParse<DishCategory>(category, ignoreCase: true, out var parsed))
+        if (string.IsNullOrWhiteSpace(category))
         {
             throw new MenuServiceException(
                 $"Invalid category '{category}'. Allowed: {string.Join(", ", Enum.GetNames<DishCategory>())}.");
         }
 
-        return parsed;
+        if (Enum.TryParse<DishCategory>(category, ignoreCase: true, out var parsed))
+        {
+            return parsed;
+        }
+
+        // Legacy aliases from older catering-web / seed data.
+        return category.Trim().ToLowerInvariant() switch
+        {
+            "beverage" => DishCategory.Drink,
+            "bakery" => DishCategory.Side,
+            _ => throw new MenuServiceException(
+                $"Invalid category '{category}'. Allowed: {string.Join(", ", Enum.GetNames<DishCategory>())}.")
+        };
     }
 
     private Guid RequireWorkspace()

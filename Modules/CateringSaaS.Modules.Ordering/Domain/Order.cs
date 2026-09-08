@@ -22,6 +22,11 @@ public class Order
     /// <summary>Assigned delivery driver (Identity User id). Null until assigned.</summary>
     public Guid? DriverId { get; set; }
 
+    /// <summary>
+    /// Set when FIFO stock was consumed for this order (ReadyForDelivery).
+    /// Prevents double deduction on repeated status transitions.
+    /// </summary>
+    public DateTime? StockConsumedAt { get; set; }
+
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }
-

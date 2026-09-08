@@ -6,7 +6,14 @@ public sealed record MenuItemOrderSnapshot(
     Guid? MenuClientCompanyId,
     DateOnly MenuDayDate,
     decimal SellingPrice,
-    string MenuStatus);
+    string MenuStatus,
+    Guid DishId,
+    string DishName);
+
+public sealed record MenuItemDisplaySnapshot(
+    Guid MenuItemId,
+    Guid DishId,
+    string DishName);
 
 public interface IMenuItemOrderCatalog
 {
@@ -15,5 +22,14 @@ public interface IMenuItemOrderCatalog
         Guid workspaceId,
         Guid clientCompanyId,
         DateOnly targetDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves dish display info for menu items (including historical / unpublished).
+    /// Used to backfill names for meal-request lines that predate DishName snapshots.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, MenuItemDisplaySnapshot>> GetDisplaySnapshotsAsync(
+        IEnumerable<Guid> menuItemIds,
+        Guid workspaceId,
         CancellationToken cancellationToken = default);
 }

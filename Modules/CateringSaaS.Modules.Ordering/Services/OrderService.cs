@@ -94,6 +94,8 @@ public sealed class ClientOrderService : IClientOrderService
                 Id = Guid.NewGuid(),
                 WorkspaceId = workspaceId,
                 MenuItemId = input.MenuItemId,
+                DishId = snapshot.DishId,
+                DishName = snapshot.DishName,
                 Quantity = input.Quantity,
                 UnitPrice = snapshot.SellingPrice,
                 Subtotal = subtotal
@@ -116,7 +118,7 @@ public sealed class ClientOrderService : IClientOrderService
         await _dbContext.Set<Order>().AddAsync(order, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return ToResponse(order);
+        return OrderDtoMapper.ToResponse(order);
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetForClientAsync(
@@ -130,6 +132,7 @@ public sealed class ClientOrderService : IClientOrderService
 
         var query = _dbContext.Set<Order>()
             .AsNoTracking()
+            .Include(o => o.Items)
             .Where(o => o.WorkspaceId == workspaceId && o.ClientCompanyId == clientCompanyId);
 
         if (!isAdmin)
@@ -140,20 +143,12 @@ public sealed class ClientOrderService : IClientOrderService
 
         query = ApplyTargetDateFilter(query, targetDateFrom, targetDateTo);
 
-        return await query
+        var orders = await query
             .OrderByDescending(o => o.TargetDate)
             .ThenByDescending(o => o.CreatedAt)
-            .Select(o => new OrderListItemResponse(
-                o.Id,
-                o.ClientCompanyId,
-                o.PlacedByUserId,
-                o.DriverId,
-                o.TargetDate,
-                o.CreatedAt,
-                o.Status.ToString(),
-                o.TotalAmount,
-                o.Items.Count))
             .ToListAsync(cancellationToken);
+
+        return orders.Select(OrderDtoMapper.ToListItem).ToList();
     }
 
     public async Task<OrderResponse> CancelAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -193,7 +188,7 @@ public sealed class ClientOrderService : IClientOrderService
         order.Status = OrderStatus.Cancelled;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return ToResponse(order);
+        return OrderDtoMapper.ToResponse(order);
     }
 
     private static IReadOnlyList<CreateOrderItemInput> NormalizeItems(IReadOnlyList<CreateOrderItemInput> items)
@@ -267,35 +262,22 @@ public sealed class ClientOrderService : IClientOrderService
 
         return _currentUser.UserId;
     }
-
-    private static OrderResponse ToResponse(Order order) =>
-        new(
-            order.Id,
-            order.WorkspaceId,
-            order.ClientCompanyId,
-            order.PlacedByUserId,
-            order.DriverId,
-            order.TargetDate,
-            order.CreatedAt,
-            order.Status.ToString(),
-            order.TotalAmount,
-            order.Items.Select(i => new OrderItemResponse(
-                i.Id,
-                i.MenuItemId,
-                i.Quantity,
-                i.UnitPrice,
-                i.Subtotal)).ToList());
 }
 
 public sealed class WorkspaceOrderService : IWorkspaceOrderService
 {
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IOrderStockConsumptionService _stockConsumption;
 
-    public WorkspaceOrderService(AppDbContext dbContext, ITenantContext tenantContext)
+    public WorkspaceOrderService(
+        AppDbContext dbContext,
+        ITenantContext tenantContext,
+        IOrderStockConsumptionService stockConsumption)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
+        _stockConsumption = stockConsumption;
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetAllAsync(
@@ -308,6 +290,7 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
 
         var query = _dbContext.Set<Order>()
             .AsNoTracking()
+            .Include(o => o.Items)
             .Where(o => o.WorkspaceId == workspaceId);
 
         if (targetDate is DateOnly date)
@@ -326,20 +309,12 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             query = query.Where(o => o.Status == parsed);
         }
 
-        return await query
+        var orders = await query
             .OrderByDescending(o => o.TargetDate)
             .ThenByDescending(o => o.CreatedAt)
-            .Select(o => new OrderListItemResponse(
-                o.Id,
-                o.ClientCompanyId,
-                o.PlacedByUserId,
-                o.DriverId,
-                o.TargetDate,
-                o.CreatedAt,
-                o.Status.ToString(),
-                o.TotalAmount,
-                o.Items.Count))
             .ToListAsync(cancellationToken);
+
+        return orders.Select(OrderDtoMapper.ToListItem).ToList();
     }
 
     public async Task<OrderListItemResponse> UpdateStatusAsync(
@@ -349,6 +324,8 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
     {
         var workspaceId = RequireWorkspace();
         var newStatus = ParseStatus(request.Status);
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         var order = await _dbContext.Set<Order>()
             .Include(o => o.Items)
@@ -364,19 +341,16 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             throw new OrderServiceException("Cancelled orders cannot change status.", StatusCodes.Status409Conflict);
         }
 
+        if (newStatus == OrderStatus.ReadyForDelivery)
+        {
+            await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
+        }
+
         order.Status = newStatus;
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-        return new OrderListItemResponse(
-            order.Id,
-            order.ClientCompanyId,
-            order.PlacedByUserId,
-            order.DriverId,
-            order.TargetDate,
-            order.CreatedAt,
-            order.Status.ToString(),
-            order.TotalAmount,
-            order.Items.Count);
+        return OrderDtoMapper.ToListItem(order);
     }
 
     public async Task<OrderListItemResponse> MarkReadyForDeliveryAsync(
@@ -384,6 +358,8 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
         CancellationToken cancellationToken = default)
     {
         var workspaceId = RequireWorkspace();
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         var order = await _dbContext.Set<Order>()
             .Include(o => o.Items)
@@ -401,19 +377,13 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
                 StatusCodes.Status409Conflict);
         }
 
+        await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
+
         order.Status = OrderStatus.ReadyForDelivery;
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-        return new OrderListItemResponse(
-            order.Id,
-            order.ClientCompanyId,
-            order.PlacedByUserId,
-            order.DriverId,
-            order.TargetDate,
-            order.CreatedAt,
-            order.Status.ToString(),
-            order.TotalAmount,
-            order.Items.Count);
+        return OrderDtoMapper.ToListItem(order);
     }
 
     private static OrderStatus ParseStatus(string status)

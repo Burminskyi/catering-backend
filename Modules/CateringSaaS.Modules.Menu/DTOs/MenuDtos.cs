@@ -41,15 +41,22 @@ public sealed record AddMenuItemRequest(Guid DishId, decimal SellingPrice);
 
 public sealed record UpdateMenuStatusRequest(string Status);
 
+/// <summary>
+/// Client-portal menu line. <see cref="Date"/> is always set (YYYY-MM-DD) so PWA can filter by day
+/// even if the parent <c>days[]</c> wrapper is flattened.
+/// <see cref="OutputWeight"/> is null when unset/zero (do not show "0 г").
+/// </summary>
 public sealed record ClientPortalMenuItemResponse(
     Guid MenuItemId,
     Guid MenuId,
     string MenuName,
     Guid DishId,
     string DishName,
-    string DishCategory,
-    int OutputWeight,
-    decimal SellingPrice);
+    string? Description,
+    string Category,
+    int? OutputWeight,
+    decimal SellingPrice,
+    DateOnly Date);
 
 public sealed record ClientPortalMenuDayResponse(
     DateOnly Date,

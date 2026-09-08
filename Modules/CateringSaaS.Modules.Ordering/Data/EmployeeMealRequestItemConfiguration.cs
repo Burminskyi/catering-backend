@@ -17,6 +17,10 @@ public sealed class EmployeeMealRequestItemConfiguration : IEntityTypeConfigurat
         builder.Property(i => i.MenuItemId).IsRequired();
         builder.Property(i => i.Quantity).IsRequired();
 
+        builder.Property(i => i.DishName)
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(i => i.UnitPrice)
             .HasPrecision(18, 2)
             .IsRequired();

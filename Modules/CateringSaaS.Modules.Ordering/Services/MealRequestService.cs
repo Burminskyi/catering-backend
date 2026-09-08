@@ -35,17 +35,20 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly IMenuItemOrderCatalog _menuItemCatalog;
+    private readonly IUserDisplayLookup _userDisplayLookup;
 
     public EmployeeMealRequestService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        IMenuItemOrderCatalog menuItemCatalog)
+        IMenuItemOrderCatalog menuItemCatalog,
+        IUserDisplayLookup userDisplayLookup)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _menuItemCatalog = menuItemCatalog;
+        _userDisplayLookup = userDisplayLookup;
     }
 
     public async Task<MealRequestResponse> CreateAsync(
@@ -108,6 +111,8 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
                 Id = Guid.NewGuid(),
                 WorkspaceId = workspaceId,
                 MenuItemId = input.MenuItemId,
+                DishId = snapshot.DishId,
+                DishName = snapshot.DishName,
                 Quantity = input.Quantity,
                 UnitPrice = snapshot.SellingPrice,
                 Subtotal = subtotal
@@ -141,22 +146,22 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
         var clientCompanyId = RequireClientCompany();
         var employeeId = RequireUserId();
 
-        return await _dbContext.Set<EmployeeMealRequest>()
+        var requests = await _dbContext.Set<EmployeeMealRequest>()
             .AsNoTracking()
+            .Include(r => r.Items)
             .Where(r => r.WorkspaceId == workspaceId
                 && r.ClientCompanyId == clientCompanyId
                 && r.EmployeeId == employeeId)
             .OrderByDescending(r => r.TargetDate)
             .ThenByDescending(r => r.CreatedAt)
-            .Select(r => new MealRequestListItemResponse(
-                r.Id,
-                r.EmployeeId,
-                r.TargetDate,
-                r.Status.ToString(),
-                r.TotalAmount,
-                r.CreatedAt,
-                r.Items.Count))
             .ToListAsync(cancellationToken);
+
+        return await MealRequestListMapper.MapAsync(
+            requests,
+            workspaceId,
+            _menuItemCatalog,
+            _userDisplayLookup,
+            cancellationToken);
     }
 
     private void EnsureClientEmployee()
@@ -244,15 +249,21 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IMenuItemOrderCatalog _menuItemCatalog;
+    private readonly IUserDisplayLookup _userDisplayLookup;
 
     public ClientAdminMealRequestService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        IMenuItemOrderCatalog menuItemCatalog,
+        IUserDisplayLookup userDisplayLookup)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
+        _menuItemCatalog = menuItemCatalog;
+        _userDisplayLookup = userDisplayLookup;
     }
 
     public async Task<IReadOnlyList<MealRequestListItemResponse>> GetSubmittedForDateAsync(
@@ -263,23 +274,23 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
         var workspaceId = RequireWorkspace();
         var clientCompanyId = RequireClientCompany();
 
-        return await _dbContext.Set<EmployeeMealRequest>()
+        var requests = await _dbContext.Set<EmployeeMealRequest>()
             .AsNoTracking()
+            .Include(r => r.Items)
             .Where(r => r.WorkspaceId == workspaceId
                 && r.ClientCompanyId == clientCompanyId
                 && r.TargetDate == targetDate
                 && r.Status == EmployeeMealRequestStatus.Submitted)
             .OrderBy(r => r.EmployeeId)
             .ThenBy(r => r.CreatedAt)
-            .Select(r => new MealRequestListItemResponse(
-                r.Id,
-                r.EmployeeId,
-                r.TargetDate,
-                r.Status.ToString(),
-                r.TotalAmount,
-                r.CreatedAt,
-                r.Items.Count))
             .ToListAsync(cancellationToken);
+
+        return await MealRequestListMapper.MapAsync(
+            requests,
+            workspaceId,
+            _menuItemCatalog,
+            _userDisplayLookup,
+            cancellationToken);
     }
 
     public async Task<ConsolidateMealRequestsResponse> ConsolidateAsync(
@@ -313,19 +324,51 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
             .GroupBy(i => i.MenuItemId)
             .Select(g =>
             {
-                var unitPrice = g.First().UnitPrice;
+                var first = g.First();
+                var unitPrice = first.UnitPrice;
                 var quantity = g.Sum(x => x.Quantity);
                 return new OrderItem
                 {
                     Id = Guid.NewGuid(),
                     WorkspaceId = workspaceId,
                     MenuItemId = g.Key,
+                    DishId = first.DishId,
+                    DishName = first.DishName,
                     Quantity = quantity,
                     UnitPrice = unitPrice,
                     Subtotal = unitPrice * quantity
                 };
             })
             .ToList();
+
+        // Backfill dish snapshots for legacy meal-request lines without DishName.
+        var missingMenuItemIds = aggregated
+            .Where(i => string.IsNullOrWhiteSpace(i.DishName) || i.DishId is null)
+            .Select(i => i.MenuItemId)
+            .Distinct()
+            .ToArray();
+
+        if (missingMenuItemIds.Length > 0)
+        {
+            var displays = await _menuItemCatalog.GetDisplaySnapshotsAsync(
+                missingMenuItemIds,
+                workspaceId,
+                cancellationToken);
+
+            foreach (var item in aggregated)
+            {
+                if (!displays.TryGetValue(item.MenuItemId, out var display))
+                {
+                    continue;
+                }
+
+                item.DishId ??= display.DishId;
+                if (string.IsNullOrWhiteSpace(item.DishName))
+                {
+                    item.DishName = display.DishName;
+                }
+            }
+        }
 
         var order = new Order
         {
@@ -402,5 +445,77 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
         }
 
         return _currentUser.UserId;
+    }
+}
+
+internal static class MealRequestListMapper
+{
+    public static async Task<IReadOnlyList<MealRequestListItemResponse>> MapAsync(
+        IReadOnlyList<EmployeeMealRequest> requests,
+        Guid workspaceId,
+        IMenuItemOrderCatalog menuItemCatalog,
+        IUserDisplayLookup userDisplayLookup,
+        CancellationToken cancellationToken)
+    {
+        if (requests.Count == 0)
+        {
+            return Array.Empty<MealRequestListItemResponse>();
+        }
+
+        var employeeIds = requests.Select(r => r.EmployeeId).Distinct();
+        var names = await userDisplayLookup.GetDisplayNamesAsync(employeeIds, cancellationToken);
+
+        var missingNameMenuItemIds = requests
+            .SelectMany(r => r.Items)
+            .Where(i => string.IsNullOrWhiteSpace(i.DishName) || i.DishId is null)
+            .Select(i => i.MenuItemId)
+            .Distinct()
+            .ToArray();
+
+        IReadOnlyDictionary<Guid, MenuItemDisplaySnapshot> displays =
+            missingNameMenuItemIds.Length == 0
+                ? new Dictionary<Guid, MenuItemDisplaySnapshot>()
+                : await menuItemCatalog.GetDisplaySnapshotsAsync(
+                    missingNameMenuItemIds,
+                    workspaceId,
+                    cancellationToken);
+
+        return requests.Select(r =>
+        {
+            var lines = r.Items
+                .OrderBy(i => i.DishName)
+                .ThenBy(i => i.MenuItemId)
+                .Select(i =>
+                {
+                    displays.TryGetValue(i.MenuItemId, out var display);
+                    var dishName = !string.IsNullOrWhiteSpace(i.DishName)
+                        ? i.DishName
+                        : display?.DishName ?? string.Empty;
+                    var dishId = i.DishId ?? display?.DishId;
+
+                    return new MealRequestListLineResponse(
+                        i.Id,
+                        i.MenuItemId,
+                        dishId,
+                        dishName,
+                        i.Quantity,
+                        i.UnitPrice,
+                        i.Subtotal);
+                })
+                .ToList();
+
+            names.TryGetValue(r.EmployeeId, out var employeeName);
+
+            return new MealRequestListItemResponse(
+                r.Id,
+                r.EmployeeId,
+                employeeName,
+                r.TargetDate,
+                r.Status.ToString(),
+                r.TotalAmount,
+                r.CreatedAt,
+                lines.Count,
+                lines);
+        }).ToList();
     }
 }

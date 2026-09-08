@@ -22,7 +22,7 @@ public sealed class DishConfiguration : IEntityTypeConfiguration<Dish>
             .HasMaxLength(2000);
 
         builder.Property(d => d.Category)
-            .HasConversion<string>()
+            .HasConversion(new DishCategoryValueConverter())
             .HasMaxLength(32)
             .IsRequired();
 

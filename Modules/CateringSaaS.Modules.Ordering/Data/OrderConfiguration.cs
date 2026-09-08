@@ -34,6 +34,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => o.PlacedByUserId);
         builder.HasIndex(o => new { o.WorkspaceId, o.DriverId, o.TargetDate, o.Status });
         builder.HasIndex(o => o.DriverId);
+        builder.HasIndex(o => new { o.WorkspaceId, o.StockConsumedAt });
 
         // DriverId is a Guid reference only (no cross-module FK) so driver user deletes
         // do not cascade onto historical orders.
@@ -43,4 +44,3 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
-

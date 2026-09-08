@@ -17,6 +17,7 @@ public static class OrderingModuleExtensions
 
         services.AddScoped<IClientOrderService, ClientOrderService>();
         services.AddScoped<IWorkspaceOrderService, WorkspaceOrderService>();
+        services.AddScoped<IOrderStockConsumptionService, OrderStockConsumptionService>();
         services.AddScoped<IProductionOrderGateway, ProductionOrderGateway>();
         services.AddScoped<IEmployeeMealRequestService, EmployeeMealRequestService>();
         services.AddScoped<IClientAdminMealRequestService, ClientAdminMealRequestService>();

@@ -28,6 +28,7 @@ public static class IdentityModuleExtensions
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<IWorkspaceManagerProvisioner, WorkspaceManagerProvisioner>();
         services.AddScoped<IClientAdminProvisioner, ClientAdminProvisioner>();
+        services.AddScoped<IUserDisplayLookup, UserDisplayLookup>();
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IClientEmployeeService, ClientEmployeeService>();

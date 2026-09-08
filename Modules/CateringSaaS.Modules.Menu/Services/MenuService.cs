@@ -275,7 +275,8 @@ public sealed class MenuService : IMenuService
                 Date = i.MenuDay.Date,
                 i.DishId,
                 DishName = i.Dish.Name,
-                DishCategory = i.Dish.Category,
+                Description = i.Dish.Description,
+                Category = i.Dish.Category,
                 OutputWeight = i.Dish.OutputWeight,
                 i.SellingPrice
             })
@@ -283,6 +284,7 @@ public sealed class MenuService : IMenuService
             .ThenBy(x => x.DishName)
             .ToListAsync(cancellationToken);
 
+        // Variant A: days[] with date; each item also carries Date to prevent undated duplicates in PWA.
         return rows
             .GroupBy(x => x.Date)
             .Select(g => new ClientPortalMenuDayResponse(
@@ -293,9 +295,11 @@ public sealed class MenuService : IMenuService
                     x.MenuName,
                     x.DishId,
                     x.DishName,
-                    x.DishCategory.ToString(),
-                    x.OutputWeight,
-                    x.SellingPrice)).ToList()))
+                    string.IsNullOrWhiteSpace(x.Description) ? null : x.Description,
+                    x.Category.ToString(),
+                    x.OutputWeight > 0 ? x.OutputWeight : null,
+                    x.SellingPrice,
+                    x.Date)).ToList()))
             .ToList();
     }
 

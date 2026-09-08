@@ -45,7 +45,29 @@ public sealed class MenuItemOrderCatalog : IMenuItemOrderCatalog
                 i.MenuDay.Menu.ClientCompanyId,
                 i.MenuDay.Date,
                 i.SellingPrice,
-                i.MenuDay.Menu.Status.ToString()))
+                i.MenuDay.Menu.Status.ToString(),
+                i.DishId,
+                i.Dish.Name))
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.MenuItemId);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, MenuItemDisplaySnapshot>> GetDisplaySnapshotsAsync(
+        IEnumerable<Guid> menuItemIds,
+        Guid workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = menuItemIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, MenuItemDisplaySnapshot>();
+        }
+
+        var rows = await _dbContext.Set<MenuItem>()
+            .AsNoTracking()
+            .Where(i => ids.Contains(i.Id) && i.WorkspaceId == workspaceId)
+            .Select(i => new MenuItemDisplaySnapshot(i.Id, i.DishId, i.Dish.Name))
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(r => r.MenuItemId);
