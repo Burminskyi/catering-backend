@@ -78,7 +78,8 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
                     && r.EmployeeId == employeeId
                     && r.TargetDate == request.TargetDate
                     && (r.Status == EmployeeMealRequestStatus.Submitted
-                        || r.Status == EmployeeMealRequestStatus.Approved),
+                        || r.Status == EmployeeMealRequestStatus.Approved
+                        || r.Status == EmployeeMealRequestStatus.Delivered),
                 cancellationToken);
 
         if (hasActive)
@@ -159,6 +160,7 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
         return await MealRequestListMapper.MapAsync(
             requests,
             workspaceId,
+            _dbContext,
             _menuItemCatalog,
             _userDisplayLookup,
             cancellationToken);
@@ -288,6 +290,7 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
         return await MealRequestListMapper.MapAsync(
             requests,
             workspaceId,
+            _dbContext,
             _menuItemCatalog,
             _userDisplayLookup,
             cancellationToken);
@@ -453,6 +456,7 @@ internal static class MealRequestListMapper
     public static async Task<IReadOnlyList<MealRequestListItemResponse>> MapAsync(
         IReadOnlyList<EmployeeMealRequest> requests,
         Guid workspaceId,
+        AppDbContext dbContext,
         IMenuItemOrderCatalog menuItemCatalog,
         IUserDisplayLookup userDisplayLookup,
         CancellationToken cancellationToken)
@@ -480,6 +484,28 @@ internal static class MealRequestListMapper
                     workspaceId,
                     cancellationToken);
 
+        var companyIds = requests.Select(r => r.ClientCompanyId).Distinct().ToArray();
+        var dates = requests.Select(r => r.TargetDate).Distinct().ToArray();
+
+        var orderStatuses = await dbContext.Set<Order>()
+            .AsNoTracking()
+            .Where(o => o.WorkspaceId == workspaceId
+                && companyIds.Contains(o.ClientCompanyId)
+                && dates.Contains(o.TargetDate)
+                && o.Status != OrderStatus.Cancelled)
+            .GroupBy(o => new { o.ClientCompanyId, o.TargetDate })
+            .Select(g => new
+            {
+                g.Key.ClientCompanyId,
+                g.Key.TargetDate,
+                Status = g.OrderByDescending(o => o.CreatedAt).Select(o => o.Status).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var orderStatusByKey = orderStatuses.ToDictionary(
+            x => (x.ClientCompanyId, x.TargetDate),
+            x => x.Status.ToString());
+
         return requests.Select(r =>
         {
             var lines = r.Items
@@ -505,6 +531,7 @@ internal static class MealRequestListMapper
                 .ToList();
 
             names.TryGetValue(r.EmployeeId, out var employeeName);
+            orderStatusByKey.TryGetValue((r.ClientCompanyId, r.TargetDate), out var orderStatus);
 
             return new MealRequestListItemResponse(
                 r.Id,
@@ -515,7 +542,8 @@ internal static class MealRequestListMapper
                 r.TotalAmount,
                 r.CreatedAt,
                 lines.Count,
-                lines);
+                lines,
+                orderStatus);
         }).ToList();
     }
 }

@@ -47,7 +47,8 @@ public sealed record MealRequestListItemResponse(
     decimal TotalAmount,
     DateTime CreatedAt,
     int ItemCount,
-    IReadOnlyList<MealRequestListLineResponse> Items);
+    IReadOnlyList<MealRequestListLineResponse> Items,
+    string? OrderStatus = null);
 
 public sealed record ConsolidateMealRequestsRequest(DateOnly TargetDate);
 

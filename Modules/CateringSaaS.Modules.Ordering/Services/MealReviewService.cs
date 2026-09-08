@@ -68,13 +68,14 @@ public sealed class MealReviewService : IMealReviewService
                     && r.ClientCompanyId == clientCompanyId
                     && r.EmployeeId == employeeId
                     && r.TargetDate == request.TargetDate
-                    && r.Status == EmployeeMealRequestStatus.Approved,
+                    && (r.Status == EmployeeMealRequestStatus.Delivered
+                        || r.Status == EmployeeMealRequestStatus.Approved),
                 cancellationToken);
 
         if (mealRequest is null)
         {
             throw new OrderServiceException(
-                "No approved meal request found for this date.",
+                "No delivered meal request found for this date.",
                 StatusCodes.Status400BadRequest);
         }
 

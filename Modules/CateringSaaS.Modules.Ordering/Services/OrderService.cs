@@ -269,15 +269,18 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IOrderStockConsumptionService _stockConsumption;
+    private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
 
     public WorkspaceOrderService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
-        IOrderStockConsumptionService stockConsumption)
+        IOrderStockConsumptionService stockConsumption,
+        IMealRequestDeliverySync mealRequestDeliverySync)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _stockConsumption = stockConsumption;
+        _mealRequestDeliverySync = mealRequestDeliverySync;
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetAllAsync(
@@ -348,6 +351,12 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
 
         order.Status = newStatus;
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (newStatus == OrderStatus.Delivered)
+        {
+            await _mealRequestDeliverySync.SyncDeliveredAsync(order, cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
 
         return OrderDtoMapper.ToListItem(order);

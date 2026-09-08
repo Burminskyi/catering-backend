@@ -29,17 +29,20 @@ public sealed class DeliveryService : IDeliveryService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly IPushNotificationService _pushNotificationService;
+    private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
 
     public DeliveryService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        IPushNotificationService pushNotificationService)
+        IPushNotificationService pushNotificationService,
+        IMealRequestDeliverySync mealRequestDeliverySync)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _pushNotificationService = pushNotificationService;
+        _mealRequestDeliverySync = mealRequestDeliverySync;
     }
 
     public async Task<OrderListItemResponse> AssignDriverAsync(
@@ -133,6 +136,8 @@ public sealed class DeliveryService : IDeliveryService
 
         order.Status = OrderStatus.Delivered;
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _mealRequestDeliverySync.SyncDeliveredAsync(order, cancellationToken);
 
         await _pushNotificationService.NotifyEmployeesOrderDeliveredAsync(
             order.ClientCompanyId,
