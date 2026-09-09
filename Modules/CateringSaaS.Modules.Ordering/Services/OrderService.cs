@@ -344,8 +344,10 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             throw new OrderServiceException("Cancelled orders cannot change status.", StatusCodes.Status409Conflict);
         }
 
-        if (newStatus == OrderStatus.ReadyForDelivery)
+        if (newStatus == OrderStatus.InProduction
+            || (newStatus == OrderStatus.ReadyForDelivery && order.StockConsumedAt is null))
         {
+            // Primary: InProduction. Fallback Ready if production was skipped via free status update.
             await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
         }
 
@@ -386,7 +388,11 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
                 StatusCodes.Status409Conflict);
         }
 
-        await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
+        // Stock should already be consumed at InProduction; no-op if StockConsumedAt is set.
+        if (order.StockConsumedAt is null)
+        {
+            await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
+        }
 
         order.Status = OrderStatus.ReadyForDelivery;
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -48,6 +48,8 @@ public sealed class ProductionOrderGateway : IProductionOrderGateway
         foreach (var order in orders)
         {
             order.Status = OrderStatus.InProduction;
+            // Kitchen plan already deducted FIFO for these orders in the same transaction.
+            order.StockConsumedAt ??= DateTime.UtcNow;
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);

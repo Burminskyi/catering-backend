@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CateringSaaS.Modules.Ordering.Services;
 
 /// <summary>
-/// FIFO stock consume when an order becomes ReadyForDelivery (canonical Variant A).
+/// FIFO stock consume when an order enters production (InProduction).
 /// Idempotent via <see cref="Order.StockConsumedAt"/>.
 /// </summary>
 public interface IOrderStockConsumptionService
@@ -42,7 +42,7 @@ public sealed class OrderStockConsumptionService : IOrderStockConsumptionService
         if (order.Items is null || order.Items.Count == 0 || order.Items.Sum(i => i.Quantity) <= 0)
         {
             throw new OrderServiceException(
-                "Cannot mark order ready: order has no dish portions to produce.",
+                "Cannot start production: order has no dish portions to produce.",
                 StatusCodes.Status409Conflict);
         }
 

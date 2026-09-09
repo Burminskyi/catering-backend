@@ -23,7 +23,7 @@ public class Order
     public Guid? DriverId { get; set; }
 
     /// <summary>
-    /// Set when FIFO stock was consumed for this order (ReadyForDelivery).
+    /// Set when FIFO stock was consumed for this order (typically at InProduction).
     /// Prevents double deduction on repeated status transitions.
     /// </summary>
     public DateTime? StockConsumedAt { get; set; }
