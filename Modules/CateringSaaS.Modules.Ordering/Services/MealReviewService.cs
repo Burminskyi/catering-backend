@@ -54,10 +54,11 @@ public sealed class MealReviewService : IMealReviewService
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        if (request.TargetDate >= today)
+        if (request.TargetDate > today)
         {
             throw new OrderServiceException(
-                "Reviews can only be submitted for past delivery dates.");
+                "Cannot review a future delivery date.",
+                StatusCodes.Status400BadRequest);
         }
 
         var mealRequest = await _dbContext.Set<EmployeeMealRequest>()
@@ -75,7 +76,7 @@ public sealed class MealReviewService : IMealReviewService
         if (mealRequest is null)
         {
             throw new OrderServiceException(
-                "No delivered meal request found for this date.",
+                "No meal request found for this date.",
                 StatusCodes.Status400BadRequest);
         }
 
@@ -86,7 +87,8 @@ public sealed class MealReviewService : IMealReviewService
                 StatusCodes.Status400BadRequest);
         }
 
-        var wasDelivered = await _dbContext.Set<Order>()
+        var mealRequestDelivered = mealRequest.Status == EmployeeMealRequestStatus.Delivered;
+        var orderDelivered = await _dbContext.Set<Order>()
             .AsNoTracking()
             .AnyAsync(
                 o => o.WorkspaceId == workspaceId
@@ -95,10 +97,10 @@ public sealed class MealReviewService : IMealReviewService
                     && o.Status == OrderStatus.Delivered,
                 cancellationToken);
 
-        if (!wasDelivered)
+        if (!mealRequestDelivered && !orderDelivered)
         {
             throw new OrderServiceException(
-                "Cannot review: no delivered catering order for this date.",
+                "Cannot review: meal request or catering order is not delivered for this date.",
                 StatusCodes.Status400BadRequest);
         }
 
