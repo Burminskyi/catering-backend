@@ -26,7 +26,7 @@ public static class MenuModuleExtensions
     public static IEndpointRouteBuilder MapMenuEndpoints(this IEndpointRouteBuilder app)
     {
         var dishes = app.MapGroup("/api/dishes")
-            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager", "Chef"));
 
         dishes.MapGetDishesEndpoint();
         dishes.MapCreateDishEndpoint();
@@ -34,7 +34,7 @@ public static class MenuModuleExtensions
         dishes.MapDeleteDishEndpoint();
 
         var menus = app.MapGroup("/api/menus")
-            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager", "Chef"));
 
         menus.MapGetMenusEndpoint();
         menus.MapCreateMenuEndpoint();

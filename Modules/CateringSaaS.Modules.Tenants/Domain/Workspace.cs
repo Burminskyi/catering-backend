@@ -6,6 +6,8 @@ public class Workspace
 
     public required string Name { get; set; }
 
+    public string? LogoUrl { get; set; }
+
     public required string Subdomain { get; set; }
 
     public DateTime CreatedAt { get; set; }

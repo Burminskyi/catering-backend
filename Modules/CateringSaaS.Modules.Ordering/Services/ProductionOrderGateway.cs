@@ -33,6 +33,42 @@ public sealed class ProductionOrderGateway : IProductionOrderGateway
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ProductionOrderItemLine>> LockConfirmedOrdersAndGetUnconsumedLinesAsync(
+        Guid workspaceId,
+        DateOnly targetDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (_dbContext.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException(
+                "Confirmed order rows must be locked inside a transaction.");
+        }
+
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            SELECT 1 FROM orders
+            WHERE "WorkspaceId" = {workspaceId}
+              AND "TargetDate" = {targetDate}
+              AND "Status" = 'Confirmed'
+            FOR UPDATE
+            """,
+            cancellationToken);
+
+        return await _dbContext.Set<OrderItem>()
+            .AsNoTracking()
+            .Where(i =>
+                i.WorkspaceId == workspaceId
+                && i.Order.TargetDate == targetDate
+                && i.Order.Status == OrderStatus.Confirmed
+                && i.Order.StockConsumedAt == null)
+            .Select(i => new ProductionOrderItemLine(
+                i.OrderId,
+                i.Id,
+                i.MenuItemId,
+                i.Quantity))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<int> MarkOrdersInProductionAsync(
         Guid workspaceId,
         DateOnly targetDate,
@@ -42,7 +78,8 @@ public sealed class ProductionOrderGateway : IProductionOrderGateway
             .Where(o =>
                 o.WorkspaceId == workspaceId
                 && o.TargetDate == targetDate
-                && o.Status == OrderStatus.Confirmed)
+                && o.Status == OrderStatus.Confirmed
+                && o.StockConsumedAt == null)
             .ToListAsync(cancellationToken);
 
         foreach (var order in orders)

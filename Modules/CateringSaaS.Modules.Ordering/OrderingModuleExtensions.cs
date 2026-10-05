@@ -23,6 +23,8 @@ public static class OrderingModuleExtensions
         services.AddScoped<IEmployeeMealRequestService, EmployeeMealRequestService>();
         services.AddScoped<IClientAdminMealRequestService, ClientAdminMealRequestService>();
         services.AddScoped<IMealReviewService, MealReviewService>();
+        services.AddScoped<OrderListMapper>();
+        services.AddScoped<IOrderReportingQueries, OrderReportingQueries>();
         services.AddScoped<IDeliveryService, DeliveryService>();
         services.AddScoped<IPushNotificationService, LoggingPushNotificationService>();
 

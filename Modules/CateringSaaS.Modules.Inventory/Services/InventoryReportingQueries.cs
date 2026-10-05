@@ -1,0 +1,231 @@
+using CateringSaaS.Modules.Inventory.Domain.Enums;
+using CateringSaaS.Modules.Inventory.Domain.Models;
+using CateringSaaS.Shared.Contracts;
+using CateringSaaS.Shared.Data;
+using Microsoft.EntityFrameworkCore;
+using InventoryEntity = CateringSaaS.Modules.Inventory.Domain.Models.Inventory;
+
+namespace CateringSaaS.Modules.Inventory.Services;
+
+public sealed class InventoryReportingQueries : IInventoryReportingQueries
+{
+    private readonly AppDbContext _dbContext;
+
+    public InventoryReportingQueries(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IReadOnlyList<CriticalStockRow>> GetCriticalStockAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _dbContext.Set<InventoryEntity>()
+            .AsNoTracking()
+            .Where(i => i.WorkspaceId == workspaceId)
+            .Select(i => new
+            {
+                i.IngredientId,
+                Name = i.Ingredient.Name,
+                Category = i.Ingredient.Category,
+                Unit = i.Ingredient.BaseUnit,
+                i.TotalQuantity
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(row =>
+            {
+                var threshold = ThresholdFor(row.Unit);
+                return new CriticalStockRow(
+                    row.IngredientId,
+                    row.Name,
+                    row.Category.ToString(),
+                    row.Unit.ToString(),
+                    row.TotalQuantity,
+                    threshold);
+            })
+            .Where(row => row.Quantity < row.Threshold)
+            .OrderBy(row => row.Quantity)
+            .ThenBy(row => row.Name)
+            .Take(20)
+            .ToList();
+    }
+
+    public async Task<StockMovementSnapshot> GetStockMovementsAsync(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        Guid? ingredientId,
+        CancellationToken cancellationToken = default)
+    {
+        var fromUtc = DateTime.SpecifyKind(dateFrom.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var toUtcExclusive = DateTime.SpecifyKind(
+            dateTo.AddDays(1).ToDateTime(TimeOnly.MinValue),
+            DateTimeKind.Utc);
+
+        var query = _dbContext.Set<InventoryMovement>()
+            .AsNoTracking()
+            .Where(m =>
+                m.WorkspaceId == workspaceId
+                && m.CreatedAt >= fromUtc
+                && m.CreatedAt < toUtcExclusive);
+
+        if (ingredientId is Guid id)
+        {
+            query = query.Where(m => m.IngredientId == id);
+        }
+
+        var movements = await query
+            .Select(m => new
+            {
+                m.Type,
+                m.Quantity,
+                m.TotalCost,
+                m.CreatedAt,
+                Category = m.Ingredient.Category
+            })
+            .ToListAsync(cancellationToken);
+
+        decimal Qty(InventoryMovementType type) =>
+            movements.Where(m => m.Type == type).Sum(m => m.Quantity);
+        decimal Cost(InventoryMovementType type) =>
+            movements.Where(m => m.Type == type).Sum(m => m.TotalCost);
+
+        var daily = movements
+            .GroupBy(m => DateOnly.FromDateTime(m.CreatedAt))
+            .OrderBy(g => g.Key)
+            .Select(g => new StockMovementDayRow(
+                g.Key,
+                g.Where(m => m.Type == InventoryMovementType.Purchase).Sum(m => m.Quantity),
+                g.Where(m => m.Type == InventoryMovementType.Purchase).Sum(m => m.TotalCost),
+                g.Where(m => m.Type == InventoryMovementType.Consume).Sum(m => m.Quantity),
+                g.Where(m => m.Type == InventoryMovementType.Consume).Sum(m => m.TotalCost),
+                g.Where(m => m.Type == InventoryMovementType.Adjustment).Sum(m => m.Quantity),
+                g.Where(m => m.Type == InventoryMovementType.Adjustment).Sum(m => m.TotalCost)))
+            .ToList();
+
+        var categorySpend = movements
+            .Where(m => m.Type == InventoryMovementType.Purchase)
+            .GroupBy(m => m.Category.ToString())
+            .Select(g => new StockCategorySpendRow(g.Key, g.Sum(m => m.TotalCost)))
+            .OrderByDescending(r => r.PurchaseCost)
+            .ToList();
+
+        return new StockMovementSnapshot(
+            Qty(InventoryMovementType.Purchase),
+            Cost(InventoryMovementType.Purchase),
+            Qty(InventoryMovementType.Consume),
+            Cost(InventoryMovementType.Consume),
+            Qty(InventoryMovementType.Adjustment),
+            Cost(InventoryMovementType.Adjustment),
+            daily,
+            categorySpend);
+    }
+
+    public async Task<IReadOnlyList<IngredientConsumptionRow>> GetConsumptionByIngredientAsync(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        Guid? ingredientId,
+        CancellationToken cancellationToken = default)
+    {
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo);
+        var query = _dbContext.Set<InventoryMovement>()
+            .AsNoTracking()
+            .Where(m =>
+                m.WorkspaceId == workspaceId
+                && m.Type == InventoryMovementType.Consume
+                && m.CreatedAt >= fromUtc
+                && m.CreatedAt < toUtcExclusive);
+
+        if (ingredientId is Guid id)
+        {
+            query = query.Where(m => m.IngredientId == id);
+        }
+
+        return await query
+            .GroupBy(m => new { m.IngredientId, m.Ingredient.Name, Unit = m.Ingredient.BaseUnit })
+            .Select(g => new IngredientConsumptionRow(
+                g.Key.IngredientId,
+                g.Key.Name,
+                g.Key.Unit.ToString(),
+                g.Sum(m => m.Quantity),
+                g.Sum(m => m.TotalCost)))
+            .OrderByDescending(r => r.ConsumeQuantity)
+            .ThenBy(r => r.Name)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<IngredientBalanceRow>> GetIngredientBalancesAsync(
+        Guid workspaceId,
+        IEnumerable<Guid>? ingredientIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = ingredientIds?.Distinct().ToArray() ?? [];
+        var query = _dbContext.Set<InventoryEntity>()
+            .AsNoTracking()
+            .Where(i => i.WorkspaceId == workspaceId);
+
+        if (ids.Length > 0)
+        {
+            query = query.Where(i => ids.Contains(i.IngredientId));
+        }
+
+        return await query
+            .Select(i => new IngredientBalanceRow(
+                i.IngredientId,
+                i.Ingredient.Name,
+                i.Ingredient.BaseUnit.ToString(),
+                i.Ingredient.Category.ToString(),
+                i.TotalQuantity))
+            .OrderBy(r => r.Name)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SupplierSpendRow>> GetSupplierSpendAsync(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        Guid? supplierId,
+        CancellationToken cancellationToken = default)
+    {
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo);
+        var query = _dbContext.Set<StockBatch>()
+            .AsNoTracking()
+            .Where(b =>
+                b.WorkspaceId == workspaceId
+                && b.ReceivedAt >= fromUtc
+                && b.ReceivedAt < toUtcExclusive);
+
+        if (supplierId is Guid id)
+        {
+            query = query.Where(b => b.SupplierId == id);
+        }
+
+        return await query
+            .GroupBy(b => new { b.SupplierId, b.Supplier.Name })
+            .Select(g => new SupplierSpendRow(
+                g.Key.SupplierId,
+                g.Key.Name,
+                g.Sum(b => b.CostPrice),
+                g.Sum(b => b.InitialQuantity),
+                g.Count()))
+            .OrderByDescending(r => r.Spend)
+            .ThenBy(r => r.SupplierName)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static (DateTime FromUtc, DateTime ToUtcExclusive) UtcBounds(DateOnly dateFrom, DateOnly dateTo) =>
+        (
+            DateTime.SpecifyKind(dateFrom.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
+            DateTime.SpecifyKind(dateTo.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
+
+    private static decimal ThresholdFor(UnitOfMeasure unit) =>
+        unit switch
+        {
+            UnitOfMeasure.Milliliter => 10_000m,
+            UnitOfMeasure.Piece => 20m,
+            _ => 6_000m
+        };
+}

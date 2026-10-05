@@ -17,6 +17,11 @@ public class Ingredient
     public UnitOfMeasure BaseUnit { get; set; }
 
     /// <summary>
+    /// Catalog reference cost in the ingredient's base unit. Null when unknown.
+    /// </summary>
+    public decimal? CostPerUnit { get; set; }
+
+    /// <summary>
     /// Null = global shared catalog entry available to all workspaces.
     /// </summary>
     public Guid? WorkspaceId { get; set; }

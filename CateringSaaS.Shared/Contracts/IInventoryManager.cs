@@ -29,4 +29,14 @@ public interface IInventoryManager
         string? source = null,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Puts quantities back on the latest FIFO batch and writes a positive adjustment movement.
+    /// </summary>
+    Task RestoreStockAsync(
+        Guid workspaceId,
+        IReadOnlyDictionary<Guid, decimal> ingredientsToRestore,
+        string? source = null,
+        string? reason = null,
+        CancellationToken cancellationToken = default);
 }

@@ -23,4 +23,24 @@ public sealed class ClientCompanyLookup : IClientCompanyLookup
             .AnyAsync(
                 c => c.Id == clientCompanyId && c.WorkspaceId == workspaceId && c.IsActive,
                 cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, ClientCompanyContact>> GetContactsAsync(
+        Guid workspaceId,
+        IEnumerable<Guid> clientCompanyIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = clientCompanyIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, ClientCompanyContact>();
+        }
+
+        var rows = await _dbContext.Set<ClientCompany>()
+            .AsNoTracking()
+            .Where(c => c.WorkspaceId == workspaceId && ids.Contains(c.Id))
+            .Select(c => new ClientCompanyContact(c.Id, c.Name, c.Address, c.ContactPhone, c.ContactName))
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(c => c.Id);
+    }
 }

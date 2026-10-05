@@ -26,6 +26,7 @@ public static class InventoryModuleExtensions
         services.AddScoped<IStockConsumptionService, StockConsumptionService>();
         services.AddScoped<IInventoryBalanceService, InventoryBalanceService>();
         services.AddScoped<IInventoryMovementService, InventoryMovementService>();
+        services.AddScoped<IInventoryReportingQueries, InventoryReportingQueries>();
 
         services.AddValidatorsFromAssemblyContaining<CreateIngredientValidator>(
             lifetime: ServiceLifetime.Scoped);
@@ -50,7 +51,7 @@ public static class InventoryModuleExtensions
         ingredients.MapDeleteIngredientEndpoint();
 
         var suppliers = app.MapGroup("/api/suppliers")
-            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager", "Chef"));
 
         suppliers.MapGetSuppliersEndpoint();
         suppliers.MapCreateSupplierEndpoint();
@@ -70,6 +71,8 @@ public static class InventoryModuleExtensions
         inventory.MapConsumeStockEndpoint();
         inventory.MapGetInventoryBalanceEndpoint();
         inventory.MapGetInventoryMovementsEndpoint();
+        inventory.MapImportIngredientsCsvEndpoint()
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager", "SuperAdmin"));
 
         return app;
     }

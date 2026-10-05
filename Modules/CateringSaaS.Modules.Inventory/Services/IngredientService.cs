@@ -23,6 +23,8 @@ public interface IIngredientService
     Task<IngredientResponse> UpdateAsync(Guid id, UpdateIngredientRequest request, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IngredientImportSummary> ImportCsvAsync(Stream csvStream, CancellationToken cancellationToken = default);
 }
 
 public sealed class IngredientService : IIngredientService
@@ -75,7 +77,8 @@ public sealed class IngredientService : IIngredientService
                 i.Category.ToString(),
                 i.BaseUnit.ToString(),
                 i.WorkspaceId,
-                i.WorkspaceId == null))
+                i.WorkspaceId == null,
+                i.CostPerUnit))
             .ToListAsync(cancellationToken);
 
         var totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -174,6 +177,126 @@ public sealed class IngredientService : IIngredientService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IngredientImportSummary> ImportCsvAsync(
+        Stream csvStream,
+        CancellationToken cancellationToken = default)
+    {
+        var workspaceId = RequireWorkspace();
+        var rows = await IngredientCsvParser.ParseAsync(csvStream, cancellationToken);
+        if (rows.Count == 0)
+        {
+            throw new ServiceException("CSV file has no ingredient rows.", StatusCodes.Status400BadRequest);
+        }
+
+        var existing = await _dbContext.Set<Ingredient>()
+            .Where(i => i.WorkspaceId == workspaceId || i.WorkspaceId == null)
+            .ToListAsync(cancellationToken);
+
+        var localByName = existing
+            .Where(i => i.WorkspaceId == workspaceId)
+            .GroupBy(i => NormalizeName(i.Name))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var globalNames = existing
+            .Where(i => i.WorkspaceId is null)
+            .Select(i => NormalizeName(i.Name))
+            .ToHashSet();
+
+        var added = 0;
+        var updated = 0;
+        var skipped = 0;
+
+        foreach (var row in rows)
+        {
+            var key = NormalizeName(row.Name);
+            if (string.IsNullOrEmpty(key))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (!TryParseUnit(row.Unit, out var unit) && !string.IsNullOrWhiteSpace(row.Unit))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.Unit))
+            {
+                unit = UnitOfMeasure.Gram;
+            }
+
+            if (localByName.TryGetValue(key, out var local))
+            {
+                local.BaseUnit = unit;
+                local.CostPerUnit = row.CostPerUnit;
+                updated++;
+                continue;
+            }
+
+            if (globalNames.Contains(key))
+            {
+                skipped++;
+                continue;
+            }
+
+            var created = new Ingredient
+            {
+                Id = Guid.NewGuid(),
+                Name = row.Name,
+                Category = IngredientCategory.Grocery,
+                BaseUnit = unit,
+                CostPerUnit = row.CostPerUnit,
+                WorkspaceId = workspaceId
+            };
+
+            await _dbContext.Set<Ingredient>().AddAsync(created, cancellationToken);
+            localByName[key] = created;
+            globalNames.Add(key);
+            added++;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new IngredientImportSummary(added, updated, skipped);
+    }
+
+    private static string NormalizeName(string name)
+    {
+        var trimmed = name.Trim();
+        if (trimmed.Length == 0) return string.Empty;
+
+        var collapsed = string.Join(
+            ' ',
+            trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return collapsed.ToLowerInvariant();
+    }
+
+    private static bool TryParseUnit(string value, out UnitOfMeasure unit)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        unit = UnitOfMeasure.Gram;
+
+        if (normalized is "g" or "gram" or "grams" or "г" or "кг" or "kg" or "kilogram" or "kilograms")
+        {
+            unit = UnitOfMeasure.Gram;
+            return true;
+        }
+
+        if (normalized is "ml" or "milliliter" or "milliliters" or "l" or "liter" or "liters" or "мл" or "л")
+        {
+            unit = UnitOfMeasure.Milliliter;
+            return true;
+        }
+
+        if (normalized is "pcs" or "pc" or "piece" or "pieces" or "шт" or "штука")
+        {
+            unit = UnitOfMeasure.Piece;
+            return true;
+        }
+
+        return Enum.TryParse(value.Trim(), ignoreCase: true, out unit);
+    }
+
     private async Task<Ingredient> GetLocalIngredientOrThrowAsync(
         Guid id,
         Guid workspaceId,
@@ -265,5 +388,6 @@ public sealed class IngredientService : IIngredientService
             ingredient.Category.ToString(),
             ingredient.BaseUnit.ToString(),
             ingredient.WorkspaceId,
-            ingredient.WorkspaceId is null);
+            ingredient.WorkspaceId is null,
+            ingredient.CostPerUnit);
 }

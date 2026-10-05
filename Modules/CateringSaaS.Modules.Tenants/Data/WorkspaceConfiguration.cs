@@ -16,6 +16,9 @@ public sealed class WorkspaceConfiguration : IEntityTypeConfiguration<Workspace>
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(w => w.LogoUrl)
+            .HasMaxLength(2048);
+
         builder.Property(w => w.Subdomain)
             .HasMaxLength(100)
             .IsRequired();

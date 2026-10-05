@@ -15,6 +15,7 @@ public static class TenantModuleExtensions
     {
         ModuleConfigurationRegistry.Register(typeof(WorkspaceConfiguration).Assembly);
         services.AddScoped<IWorkspaceLookup, WorkspaceLookup>();
+        services.AddScoped<IWorkspaceBrandingService, WorkspaceBrandingService>();
         services.AddScoped<IClientCompanyLookup, ClientCompanyLookup>();
         services.AddScoped<IClientCompanyService, ClientCompanyService>();
         services.AddScoped<ITenantDataSeeder, TenantDatabaseSeeder>();
@@ -33,8 +34,19 @@ public static class TenantModuleExtensions
         workspaces.MapUpdateWorkspaceSubscriptionEndpoint();
         workspaces.MapUpdateWorkspaceManagerEndpoint();
 
+        var currentWorkspace = app.MapGroup("/api/workspace")
+            .RequireAuthorization(policy => policy.RequireRole(
+                "WorkspaceAdmin",
+                "Manager",
+                "Chef",
+                "SuperAdmin"));
+
+        currentWorkspace.MapGetCurrentWorkspaceEndpoint();
+        currentWorkspace.MapUpdateWorkspaceBrandingEndpoint()
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager", "SuperAdmin"));
+
         var clients = app.MapGroup("/api/clients")
-            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager"));
 
         clients.MapGetClientsEndpoint();
         clients.MapCreateClientEndpoint();

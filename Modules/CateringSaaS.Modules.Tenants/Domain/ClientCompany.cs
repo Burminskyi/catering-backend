@@ -10,5 +10,11 @@ public class ClientCompany
 
     public required string Name { get; set; }
 
+    public string? Address { get; set; }
+
+    public string? ContactPhone { get; set; }
+
+    public string? ContactName { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

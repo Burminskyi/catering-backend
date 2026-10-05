@@ -16,7 +16,10 @@ public sealed record IngredientResponse(
     string Category,
     string BaseUnit,
     Guid? WorkspaceId,
-    bool IsGlobal);
+    bool IsGlobal,
+    decimal? CostPerUnit);
+
+public sealed record IngredientImportSummary(int Added, int Updated, int Skipped);
 
 public sealed record PagedIngredientsResponse(
     IReadOnlyList<IngredientResponse> Items,

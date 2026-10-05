@@ -27,6 +27,9 @@ public sealed class IngredientConfiguration : IEntityTypeConfiguration<Ingredien
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(i => i.CostPerUnit)
+            .HasPrecision(18, 4);
+
         builder.Property(i => i.WorkspaceId);
 
         // Supporting lookup for uniqueness validation (global + per-workspace).

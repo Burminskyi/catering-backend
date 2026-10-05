@@ -43,6 +43,10 @@ public sealed record OrderListItemResponse(
     decimal TotalAmount,
     int ItemCount,
     int Portions,
-    IReadOnlyList<OrderItemResponse> Items);
+    IReadOnlyList<OrderItemResponse> Items,
+    string? ClientName,
+    string? Address,
+    string? ContactName,
+    string? ContactPhone);
 
 public sealed record UpdateOrderStatusRequest(string Status);

@@ -148,7 +148,7 @@ public sealed class ClientOrderService : IClientOrderService
             .ThenByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return orders.Select(OrderDtoMapper.ToListItem).ToList();
+        return orders.Select(order => OrderDtoMapper.ToListItem(order)).ToList();
     }
 
     public async Task<OrderResponse> CancelAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -270,17 +270,20 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
     private readonly ITenantContext _tenantContext;
     private readonly IOrderStockConsumptionService _stockConsumption;
     private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
+    private readonly OrderListMapper _orderListMapper;
 
     public WorkspaceOrderService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         IOrderStockConsumptionService stockConsumption,
-        IMealRequestDeliverySync mealRequestDeliverySync)
+        IMealRequestDeliverySync mealRequestDeliverySync,
+        OrderListMapper orderListMapper)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _stockConsumption = stockConsumption;
         _mealRequestDeliverySync = mealRequestDeliverySync;
+        _orderListMapper = orderListMapper;
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetAllAsync(
@@ -317,7 +320,7 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             .ThenByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return orders.Select(OrderDtoMapper.ToListItem).ToList();
+        return await _orderListMapper.MapAsync(workspaceId, orders, cancellationToken);
     }
 
     public async Task<OrderListItemResponse> UpdateStatusAsync(
@@ -344,10 +347,14 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             throw new OrderServiceException("Cancelled orders cannot change status.", StatusCodes.Status409Conflict);
         }
 
-        if (newStatus == OrderStatus.InProduction
-            || (newStatus == OrderStatus.ReadyForDelivery && order.StockConsumedAt is null))
+        if (newStatus == OrderStatus.Cancelled)
         {
-            // Primary: InProduction. Fallback Ready if production was skipped via free status update.
+            await _stockConsumption.RestoreForOrderAsync(order, cancellationToken);
+        }
+        else if (order.StockConsumedAt is null
+            && newStatus is OrderStatus.InProduction or OrderStatus.ReadyForDelivery or OrderStatus.Delivered)
+        {
+            // InProduction is the normal deduct point. Ready/Delivered cover a skipped production step.
             await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
         }
 
@@ -361,7 +368,7 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
 
         await transaction.CommitAsync(cancellationToken);
 
-        return OrderDtoMapper.ToListItem(order);
+        return await _orderListMapper.MapAsync(order, cancellationToken);
     }
 
     public async Task<OrderListItemResponse> MarkReadyForDeliveryAsync(
@@ -398,7 +405,7 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return OrderDtoMapper.ToListItem(order);
+        return await _orderListMapper.MapAsync(order, cancellationToken);
     }
 
     private static OrderStatus ParseStatus(string status)

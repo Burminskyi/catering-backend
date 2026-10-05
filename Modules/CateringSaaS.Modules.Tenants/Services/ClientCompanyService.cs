@@ -42,7 +42,14 @@ public sealed class ClientCompanyService : IClientCompanyService
             .AsNoTracking()
             .Where(c => c.WorkspaceId == workspaceId)
             .OrderBy(c => c.Name)
-            .Select(c => new ClientCompanyResponse(c.Id, c.WorkspaceId, c.Name, c.IsActive))
+            .Select(c => new ClientCompanyResponse(
+                c.Id,
+                c.WorkspaceId,
+                c.Name,
+                c.IsActive,
+                c.Address,
+                c.ContactPhone,
+                c.ContactName))
             .ToListAsync(cancellationToken);
     }
 
@@ -85,6 +92,9 @@ public sealed class ClientCompanyService : IClientCompanyService
                 Id = Guid.NewGuid(),
                 WorkspaceId = workspaceId,
                 Name = request.Name.Trim(),
+                Address = NormalizeOptional(request.Address, 500),
+                ContactPhone = NormalizeOptional(request.ContactPhone, 40),
+                ContactName = NormalizeOptional(request.ContactName, 200),
                 IsActive = true
             };
 
@@ -106,13 +116,36 @@ public sealed class ClientCompanyService : IClientCompanyService
 
             await transaction.CommitAsync(cancellationToken);
 
-            return new ClientCompanyResponse(client.Id, client.WorkspaceId, client.Name, client.IsActive);
+            return new ClientCompanyResponse(
+                client.Id,
+                client.WorkspaceId,
+                client.Name,
+                client.IsActive,
+                client.Address,
+                client.ContactPhone,
+                client.ContactName);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > maxLength)
+        {
+            throw new TenantServiceException($"Value exceeds {maxLength} characters.");
+        }
+
+        return trimmed;
     }
 
     private Guid RequireWorkspace()

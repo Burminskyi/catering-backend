@@ -69,22 +69,26 @@ public sealed class ProductionPlanService : IProductionPlanService
         CancellationToken cancellationToken = default)
     {
         var workspaceId = RequireWorkspace();
-        var requirements = await BuildRequirementsAsync(
-            workspaceId,
-            request.TargetDate,
-            cancellationToken);
-
-        if (requirements.IngredientTotals.Count == 0 && requirements.DishesToCook.Count == 0)
-        {
-            throw new KitchenServiceException(
-                $"No confirmed orders found for {request.TargetDate:yyyy-MM-dd}.",
-                StatusCodes.Status404NotFound);
-        }
+        ProductionRequirements requirements;
 
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         try
         {
+            var lockedLines = await _orderGateway.LockConfirmedOrdersAndGetUnconsumedLinesAsync(
+                workspaceId,
+                request.TargetDate,
+                cancellationToken);
+
+            requirements = await BuildRequirementsFromLinesAsync(workspaceId, lockedLines, cancellationToken);
+
+            if (requirements.IngredientTotals.Count == 0 && requirements.DishesToCook.Count == 0)
+            {
+                throw new KitchenServiceException(
+                    $"No confirmed orders found for {request.TargetDate:yyyy-MM-dd}.",
+                    StatusCodes.Status404NotFound);
+            }
+
             var availability = await _inventoryManager.CheckStockAvailabilityAsync(
                 workspaceId,
                 requirements.IngredientTotals,
@@ -190,6 +194,14 @@ public sealed class ProductionPlanService : IProductionPlanService
             targetDate,
             cancellationToken);
 
+        return await BuildRequirementsFromLinesAsync(workspaceId, orderLines, cancellationToken);
+    }
+
+    private async Task<ProductionRequirements> BuildRequirementsFromLinesAsync(
+        Guid workspaceId,
+        IReadOnlyList<ProductionOrderItemLine> orderLines,
+        CancellationToken cancellationToken)
+    {
         if (orderLines.Count == 0)
         {
             return new ProductionRequirements([], new Dictionary<Guid, decimal>());

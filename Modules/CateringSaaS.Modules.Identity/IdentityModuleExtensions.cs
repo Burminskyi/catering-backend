@@ -71,7 +71,7 @@ public static class IdentityModuleExtensions
         endpoints.MapImpersonateWorkspaceEndpoint();
 
         var staff = endpoints.MapGroup("/api/staff")
-            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin"));
+            .RequireAuthorization(policy => policy.RequireRole("WorkspaceAdmin", "Manager"));
 
         staff.MapGetStaffEndpoint();
         staff.MapCreateStaffEndpoint();

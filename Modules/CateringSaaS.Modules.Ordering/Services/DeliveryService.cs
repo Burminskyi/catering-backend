@@ -30,19 +30,25 @@ public sealed class DeliveryService : IDeliveryService
     private readonly ICurrentUserContext _currentUser;
     private readonly IPushNotificationService _pushNotificationService;
     private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
+    private readonly IOrderStockConsumptionService _stockConsumption;
+    private readonly OrderListMapper _orderListMapper;
 
     public DeliveryService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
         IPushNotificationService pushNotificationService,
-        IMealRequestDeliverySync mealRequestDeliverySync)
+        IMealRequestDeliverySync mealRequestDeliverySync,
+        IOrderStockConsumptionService stockConsumption,
+        OrderListMapper orderListMapper)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _pushNotificationService = pushNotificationService;
         _mealRequestDeliverySync = mealRequestDeliverySync;
+        _stockConsumption = stockConsumption;
+        _orderListMapper = orderListMapper;
     }
 
     public async Task<OrderListItemResponse> AssignDriverAsync(
@@ -76,7 +82,7 @@ public sealed class DeliveryService : IDeliveryService
         order.DriverId = request.DriverId;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return OrderDtoMapper.ToListItem(order);
+        return await _orderListMapper.MapAsync(order, cancellationToken);
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetMyOrdersAsync(
@@ -98,7 +104,7 @@ public sealed class DeliveryService : IDeliveryService
             .ThenBy(o => o.ClientCompanyId)
             .ToListAsync(cancellationToken);
 
-        return orders.Select(OrderDtoMapper.ToListItem).ToList();
+        return await _orderListMapper.MapAsync(workspaceId, orders, cancellationToken);
     }
 
     public async Task<OrderListItemResponse> MarkDeliveredAsync(
@@ -134,17 +140,24 @@ public sealed class DeliveryService : IDeliveryService
                 StatusCodes.Status409Conflict);
         }
 
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        if (order.StockConsumedAt is null)
+        {
+            await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
+        }
+
         order.Status = OrderStatus.Delivered;
         await _dbContext.SaveChangesAsync(cancellationToken);
-
         await _mealRequestDeliverySync.SyncDeliveredAsync(order, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         await _pushNotificationService.NotifyEmployeesOrderDeliveredAsync(
             order.ClientCompanyId,
             order.TargetDate,
             cancellationToken);
 
-        return OrderDtoMapper.ToListItem(order);
+        return await _orderListMapper.MapAsync(order, cancellationToken);
     }
 
     private void EnsureDriver()

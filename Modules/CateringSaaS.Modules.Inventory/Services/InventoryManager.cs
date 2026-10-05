@@ -176,4 +176,87 @@ public sealed class InventoryManager : IInventoryManager
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task RestoreStockAsync(
+        Guid workspaceId,
+        IReadOnlyDictionary<Guid, decimal> ingredientsToRestore,
+        string? source = null,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var movementSource = string.IsNullOrWhiteSpace(source) ? "Order cancel" : source.Trim();
+        var movementReason = string.IsNullOrWhiteSpace(reason) ? "OrderCancelled" : reason.Trim();
+
+        foreach (var (ingredientId, quantityInBase) in ingredientsToRestore)
+        {
+            if (quantityInBase <= 0)
+            {
+                continue;
+            }
+
+            var ingredient = await _dbContext.Set<Ingredient>()
+                .FirstOrDefaultAsync(
+                    i => i.Id == ingredientId
+                         && (i.WorkspaceId == null || i.WorkspaceId == workspaceId),
+                    cancellationToken);
+
+            if (ingredient is null)
+            {
+                throw new ServiceException(
+                    $"Ingredient '{ingredientId}' was not found for this workspace.",
+                    StatusCodes.Status404NotFound);
+            }
+
+            var inventory = await _dbContext.Set<InventoryEntity>()
+                .FirstOrDefaultAsync(
+                    i => i.WorkspaceId == workspaceId && i.IngredientId == ingredientId,
+                    cancellationToken);
+
+            if (inventory is null)
+            {
+                inventory = new InventoryEntity
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    IngredientId = ingredientId,
+                    TotalQuantity = 0
+                };
+                await _dbContext.Set<InventoryEntity>().AddAsync(inventory, cancellationToken);
+            }
+
+            var batch = await _dbContext.Set<StockBatch>()
+                .Where(b => b.WorkspaceId == workspaceId && b.IngredientId == ingredientId)
+                .OrderByDescending(b => b.ReceivedAt)
+                .ThenByDescending(b => b.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (batch is null)
+            {
+                throw new ServiceException(
+                    $"Cannot restore stock for '{ingredient.Name}': no batch exists to receive the return.",
+                    StatusCodes.Status409Conflict);
+            }
+
+            batch.CurrentQuantity += quantityInBase;
+            inventory.TotalQuantity += quantityInBase;
+
+            await _dbContext.Set<InventoryMovement>().AddAsync(
+                new InventoryMovement
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    IngredientId = ingredientId,
+                    Type = InventoryMovementType.Adjustment,
+                    Quantity = quantityInBase,
+                    SignedQuantity = quantityInBase,
+                    TotalCost = 0,
+                    Source = movementSource,
+                    Reason = movementReason,
+                    CreatedAt = DateTime.UtcNow
+                },
+                cancellationToken);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

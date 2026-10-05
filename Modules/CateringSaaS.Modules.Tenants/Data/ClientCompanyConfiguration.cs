@@ -19,6 +19,15 @@ public sealed class ClientCompanyConfiguration : IEntityTypeConfiguration<Client
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(c => c.Address)
+            .HasMaxLength(500);
+
+        builder.Property(c => c.ContactPhone)
+            .HasMaxLength(40);
+
+        builder.Property(c => c.ContactName)
+            .HasMaxLength(200);
+
         builder.Property(c => c.IsActive)
             .IsRequired();
 
