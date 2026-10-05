@@ -44,16 +44,21 @@ public sealed class TenantDatabaseSeeder : ITenantDataSeeder
 
         var clients = _dbContext.Set<ClientCompany>();
 
-        if (!await clients.AnyAsync(cancellationToken))
+        if (!await clients.IgnoreQueryFilters().AnyAsync(
+                c => c.Id == DevelopmentSeedIds.MockClientCompanyId,
+                cancellationToken))
         {
-            _logger.LogInformation("Seeding mock client company for frontend testing...");
+            _logger.LogInformation("Seeding primary mock client company for frontend testing...");
 
             await clients.AddAsync(
                 new ClientCompany
                 {
                     Id = DevelopmentSeedIds.MockClientCompanyId,
                     WorkspaceId = DevelopmentSeedIds.MockWorkspaceId,
-                    Name = "Office Corp",
+                    Name = "EPAM Systems",
+                    Address = "14a Akademika Filatova St, Kyiv 03124",
+                    ContactName = "Olena Kovalenko",
+                    ContactPhone = "+380 44 585 1100",
                     IsActive = true
                 },
                 cancellationToken);

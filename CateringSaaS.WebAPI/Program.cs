@@ -6,6 +6,7 @@ using CateringSaaS.Modules.Ordering;
 using CateringSaaS.Modules.Reporting;
 using CateringSaaS.Modules.Tenants;
 using CateringSaaS.Shared;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +54,20 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader());
 });
 
+var supportedCultures = new[] { "en", "uk", "pl", "ru" };
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.SetDefaultCulture("en")
+        .AddSupportedCultures(supportedCultures)
+        .AddSupportedUICultures(supportedCultures);
+
+    options.ApplyCurrentCultureToResponseHeaders = true;
+    options.RequestCultureProviders =
+    [
+        new AcceptLanguageHeaderRequestCultureProvider()
+    ];
+});
+
 builder.Services.AddSharedPersistence(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddTenantModule();
@@ -61,6 +76,7 @@ builder.Services.AddMenuModule();
 builder.Services.AddOrderingModule();
 builder.Services.AddKitchenModule();
 builder.Services.AddReportingModule();
+builder.Services.AddScoped<CateringSaaS.Shared.Contracts.IOperationalDemoSeeder, CateringSaaS.WebAPI.Seed.OperationalDemoDataSeeder>();
 
 var app = builder.Build();
 
@@ -75,6 +91,7 @@ app.UseSwaggerUI(options =>
 // CORS must run before HTTPS redirect — otherwise browser preflight (OPTIONS)
 // gets redirected and the SPA reports a CORS failure.
 app.UseCors("AllowAll");
+app.UseRequestLocalization();
 
 if (!app.Environment.IsDevelopment())
 {

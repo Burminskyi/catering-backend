@@ -226,7 +226,7 @@ public sealed class ReportingService : IReportingService
                 snapshot.ByStatus.Select(s => new ReportSeriesPoint(s.Status, s.OrderCount)).ToList())
         };
 
-        return new ReportResponse("todayPulse", "Today's operations pulse", day, day, metrics, tables, series);
+        return new ReportResponse("todayPulse", ReportTitles.TodayPulse, day, day, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetRevenueByClientAsync(
@@ -292,7 +292,7 @@ public sealed class ReportingService : IReportingService
                 }).ToList())
         };
 
-        return new ReportResponse("revenueByClient", "Revenue & volume by client", from, to, metrics, tables, series);
+        return new ReportResponse("revenueByClient", ReportTitles.RevenueByClient, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetStockMovementsAsync(
@@ -368,7 +368,7 @@ public sealed class ReportingService : IReportingService
                 tableRows)
         };
 
-        return new ReportResponse("stockMovements", "Stock movement summary", from, to, metrics, tables, series);
+        return new ReportResponse("stockMovements", ReportTitles.StockMovements, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetDeliveryAuditAsync(
@@ -452,7 +452,7 @@ public sealed class ReportingService : IReportingService
                 ])
         ];
 
-        return new ReportResponse("deliveryAudit", "Client delivery & reclamations audit", from, to, metrics, tables, series);
+        return new ReportResponse("deliveryAudit", ReportTitles.DeliveryAudit, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetDishPopularityAsync(
@@ -507,7 +507,7 @@ public sealed class ReportingService : IReportingService
                     r.Portions)).ToList())
         };
 
-        return new ReportResponse("dishPopularity", "Dish popularity & production volume", from, to, metrics, tables, series);
+        return new ReportResponse("dishPopularity", ReportTitles.DishPopularity, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetReclamationHeatMapAsync(
@@ -581,7 +581,7 @@ public sealed class ReportingService : IReportingService
             new ReportSeries("reclamationsByDish", "Reclamations by dish", "bar", byDish)
         ];
 
-        return new ReportResponse("reclamationHeatMap", "Reclamation heat map", from, to, metrics, tables, series);
+        return new ReportResponse("reclamationHeatMap", ReportTitles.ReclamationHeatMap, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetConsumptionVarianceAsync(
@@ -677,7 +677,7 @@ public sealed class ReportingService : IReportingService
                 tableRows)
         };
 
-        return new ReportResponse("consumptionVariance", "Ingredient consumption vs dish production", from, to, metrics, tables, series);
+        return new ReportResponse("consumptionVariance", ReportTitles.ConsumptionVariance, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetFoodCostAsync(
@@ -740,7 +740,7 @@ public sealed class ReportingService : IReportingService
                     ("adjustmentCost", d.AdjustmentCost))).ToList())
         };
 
-        return new ReportResponse("foodCost", "Food-cost & usage efficiency", from, to, metrics, tables, series);
+        return new ReportResponse("foodCost", ReportTitles.FoodCost, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetShortageForecastAsync(
@@ -820,7 +820,7 @@ public sealed class ReportingService : IReportingService
                 rows)
         };
 
-        return new ReportResponse("shortageForecast", "Shopping & shortage forecast", day, day, metrics, tables, series);
+        return new ReportResponse("shortageForecast", ReportTitles.ShortageForecast, day, day, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetDriverEfficiencyAsync(
@@ -887,7 +887,7 @@ public sealed class ReportingService : IReportingService
                 tableRows)
         };
 
-        return new ReportResponse("driverEfficiency", "Driver fulfillment & efficiency", from, to, metrics, tables, series);
+        return new ReportResponse("driverEfficiency", ReportTitles.DriverEfficiency, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetSupplierSpendAsync(
@@ -947,7 +947,7 @@ public sealed class ReportingService : IReportingService
                 tableRows)
         };
 
-        return new ReportResponse("supplierSpend", "Supplier spend analysis", from, to, metrics, tables, series);
+        return new ReportResponse("supplierSpend", ReportTitles.SupplierSpend, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetCancellationsAsync(
@@ -1019,7 +1019,7 @@ public sealed class ReportingService : IReportingService
             new ReportSeries("lostRevenueByClient", "Lost revenue by client", "bar", byClient)
         ];
 
-        return new ReportResponse("cancellations", "Cancellation & lost revenue", from, to, metrics, tables, series);
+        return new ReportResponse("cancellations", ReportTitles.Cancellations, from, to, metrics, tables, series);
     }
 
     private async Task<Dictionary<Guid, decimal>> ExpandExpectedUsageAsync(

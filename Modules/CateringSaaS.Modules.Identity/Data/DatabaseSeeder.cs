@@ -18,6 +18,7 @@ public sealed class DatabaseSeeder
     private readonly AppDbContext _dbContext;
     private readonly ITenantDataSeeder _tenantDataSeeder;
     private readonly IInventoryDataSeeder _inventoryDataSeeder;
+    private readonly IOperationalDemoSeeder _operationalDemoSeeder;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<DatabaseSeeder> _logger;
 
@@ -25,12 +26,14 @@ public sealed class DatabaseSeeder
         AppDbContext dbContext,
         ITenantDataSeeder tenantDataSeeder,
         IInventoryDataSeeder inventoryDataSeeder,
+        IOperationalDemoSeeder operationalDemoSeeder,
         IPasswordHasher passwordHasher,
         ILogger<DatabaseSeeder> logger)
     {
         _dbContext = dbContext;
         _tenantDataSeeder = tenantDataSeeder;
         _inventoryDataSeeder = inventoryDataSeeder;
+        _operationalDemoSeeder = operationalDemoSeeder;
         _passwordHasher = passwordHasher;
         _logger = logger;
     }
@@ -68,6 +71,7 @@ public sealed class DatabaseSeeder
                     CreateUser("manager", "manager@test.com", "Catering", "Manager", StaffRole.WorkspaceAdmin, MockWorkspaceId, null, null, passwordHash),
                     CreateUser("staff", null, "Kitchen", "Staff", StaffRole.Staff, MockWorkspaceId, null, null, passwordHash),
                     CreateUser("driver", null, "Delivery", "Driver", StaffRole.Driver, MockWorkspaceId, null, null, passwordHash),
+                    CreateUser("driver2", null, "Route", "Driver 2", StaffRole.Driver, MockWorkspaceId, null, null, passwordHash),
                     CreateUser("officemanager", "officemanager@test.com", "Office", "Manager", StaffRole.ClientAdmin, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash),
                     CreateUser("employee", "employee@test.com", "Office", "Employee", StaffRole.ClientEmployee, MockWorkspaceId, MockCompanyId, MockCompanyId, passwordHash)
                 };
@@ -84,6 +88,7 @@ public sealed class DatabaseSeeder
             }
 
             await _inventoryDataSeeder.SeedAsync(cancellationToken);
+            await _operationalDemoSeeder.SeedAsync(cancellationToken);
         }
         catch (Exception ex)
         {
