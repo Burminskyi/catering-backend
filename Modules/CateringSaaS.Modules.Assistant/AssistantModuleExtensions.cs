@@ -33,6 +33,7 @@ public static class AssistantModuleExtensions
         services.AddScoped<IAssistantTool, GetDriverEfficiencyTool>();
         services.AddScoped<IAssistantTool, GetSupplierSpendTool>();
         services.AddScoped<IAssistantTool, GetCancellationsTool>();
+        services.AddScoped<IAssistantTool, SearchKnowledgeBaseTool>();
 
         return services;
     }

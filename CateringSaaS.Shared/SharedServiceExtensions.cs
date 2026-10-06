@@ -5,6 +5,7 @@ using CateringSaaS.Shared.SeedData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Pgvector.EntityFrameworkCore;
 
 namespace CateringSaaS.Shared;
 
@@ -26,7 +27,11 @@ public static class SharedServiceExtensions
 
             options.UseNpgsql(
                 connectionString,
-                npgsql => npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
+                npgsql =>
+                {
+                    npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    npgsql.UseVector();
+                });
         });
 
         return services;

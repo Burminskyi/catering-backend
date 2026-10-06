@@ -30,6 +30,9 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Required for pgvector column mapping and EF migrations (CREATE EXTENSION vector).
+        modelBuilder.HasPostgresExtension("vector");
+
         foreach (var assembly in ModuleConfigurationRegistry.GetAssemblies())
         {
             modelBuilder.ApplyConfigurationsFromAssembly(assembly);
