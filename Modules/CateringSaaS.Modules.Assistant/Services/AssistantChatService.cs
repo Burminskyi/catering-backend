@@ -1,7 +1,11 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using CateringSaaS.Modules.Assistant.Configuration;
 using CateringSaaS.Modules.Assistant.Contracts;
+using CateringSaaS.Shared.MultiTenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,26 +20,55 @@ public interface IAssistantChatService
         AssistantChatRequest request,
         AssistantScope scope,
         CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<AssistantStreamEvent> StreamChatAsync(
+        AssistantChatRequest request,
+        AssistantScope scope,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class AssistantChatService : IAssistantChatService
 {
     private const int MaxToolTurns = 4;
+    private const int MaxHistoryMessages = 12;
+
+    /// <summary>Stable prefix for Groq prompt caching. Do not interpolate clocks or tenant data.</summary>
+    private const string StaticSystemPrompt =
+        """
+        You are the operational AI assistant for a multi-tenant catering ERP (mise.).
+        A following system message states the client's local date, time, and timezone, plus server UTC.
+        When the user mentions relative dates (yesterday, last Friday, прошлую пятницу, wczoraj, this week, last 10 days),
+        convert them to absolute ISO dates (yyyy-MM-dd) using the client local calendar date, not UTC.
+        dateFrom and dateTo are local calendar dates.
+        For stock, food-cost, consumption, and supplier tools, a clock window such as 12:00-15:00 must be passed as timeFrom and timeTo (HH:mm, 24-hour, client local).
+        Order, delivery, revenue, and pulse tools store a business date (TargetDate) only. For those, use the local calendar day and do not invent hourly totals.
+        Always reply in the same language as the user's latest message (Ukrainian, English, Polish, or Russian).
+        Tool names and parameter names stay in English. Do not invent data — call tools.
+        Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
+        Prefer concise answers and highlight key metrics from tool results.
+        If a knowledge search returns no relevant documents, say so and do not fabricate policy or recipe text.
+        """;
 
     private readonly GroqOptions _options;
     private readonly IReadOnlyDictionary<string, IAssistantTool> _tools;
     private readonly IAssistantConversationStore _conversations;
+    private readonly IClientTimeContext _clock;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AssistantChatService> _logger;
 
     public AssistantChatService(
         IOptions<GroqOptions> options,
         IEnumerable<IAssistantTool> tools,
         IAssistantConversationStore conversations,
+        IClientTimeContext clock,
+        IHttpClientFactory httpClientFactory,
         ILogger<AssistantChatService> logger)
     {
         _options = options.Value;
         _tools = tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
         _conversations = conversations;
+        _clock = clock;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -44,11 +77,151 @@ public sealed class AssistantChatService : IAssistantChatService
         AssistantScope scope,
         CancellationToken cancellationToken = default)
     {
+        var (key, conversationId, stored) = PrepareConversation(request, scope);
+        var client = CreateChatClient();
+        var chatOptions = BuildChatOptions();
+        var collectedArtifacts = new List<AssistantArtifact>();
+        var finalText = string.Empty;
+
+        for (var turn = 0; turn < MaxToolTurns; turn++)
+        {
+            var window = BuildModelWindow(stored);
+            ChatCompletion completion = await CompleteChatAsync(client, window, chatOptions, cancellationToken);
+            stored.Add(new AssistantChatMessage(completion));
+
+            if (completion.FinishReason == ChatFinishReason.ToolCalls && completion.ToolCalls.Count > 0)
+            {
+                foreach (var toolCall in completion.ToolCalls)
+                {
+                    var toolResult = await ExecuteToolCallAsync(toolCall, scope, cancellationToken);
+                    if (toolResult.Artifacts is { Count: > 0 })
+                    {
+                        collectedArtifacts.AddRange(toolResult.Artifacts);
+                    }
+
+                    stored.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
+                }
+
+                continue;
+            }
+
+            finalText = completion.Content.Count > 0
+                ? string.Concat(completion.Content.Select(part => part.Text))
+                : string.Empty;
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
+        {
+            finalText = "Here are the results.";
+        }
+
+        _conversations.Save(key, stored);
+
+        return new AssistantChatResponse(conversationId, finalText, collectedArtifacts);
+    }
+
+    public async IAsyncEnumerable<AssistantStreamEvent> StreamChatAsync(
+        AssistantChatRequest request,
+        AssistantScope scope,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var (key, conversationId, stored) = PrepareConversation(request, scope);
+        var client = CreateChatClient();
+        var chatOptions = BuildChatOptions();
+        var collectedArtifacts = new List<AssistantArtifact>();
+        var finalText = string.Empty;
+
+        for (var turn = 0; turn < MaxToolTurns; turn++)
+        {
+            var window = BuildModelWindow(stored);
+            var content = new StringBuilder();
+            var toolCalls = new StreamingToolCallAccumulator();
+            var sawToolCalls = false;
+            ChatFinishReason? finish = null;
+
+            await foreach (var update in client.CompleteChatStreamingAsync(window, chatOptions, cancellationToken))
+            {
+                if (update.ToolCallUpdates.Count > 0)
+                {
+                    sawToolCalls = true;
+                    foreach (var toolUpdate in update.ToolCallUpdates)
+                    {
+                        toolCalls.Append(toolUpdate);
+                    }
+                }
+
+                foreach (var part in update.ContentUpdate)
+                {
+                    if (string.IsNullOrEmpty(part.Text))
+                    {
+                        continue;
+                    }
+
+                    content.Append(part.Text);
+
+                    // Tool turns stay silent. Tokens are emitted only once this turn has no tool calls.
+                    if (!sawToolCalls)
+                    {
+                        yield return new AssistantTokenEvent(part.Text);
+                    }
+                }
+
+                if (update.FinishReason is { } reason)
+                {
+                    finish = reason;
+                }
+            }
+
+            var builtCalls = toolCalls.Build();
+            if ((finish == ChatFinishReason.ToolCalls || sawToolCalls) && builtCalls.Count > 0)
+            {
+                var assistantMessage = new AssistantChatMessage(builtCalls);
+                if (content.Length > 0)
+                {
+                    assistantMessage.Content.Add(ChatMessageContentPart.CreateTextPart(content.ToString()));
+                }
+
+                stored.Add(assistantMessage);
+
+                foreach (var toolCall in builtCalls)
+                {
+                    var toolResult = await ExecuteToolCallAsync(toolCall, scope, cancellationToken);
+                    if (toolResult.Artifacts is { Count: > 0 })
+                    {
+                        collectedArtifacts.AddRange(toolResult.Artifacts);
+                    }
+
+                    stored.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
+                }
+
+                continue;
+            }
+
+            finalText = content.ToString();
+            stored.Add(new AssistantChatMessage(finalText));
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
+        {
+            finalText = "Here are the results.";
+        }
+
+        _conversations.Save(key, stored);
+
+        yield return new AssistantArtifactsEvent(collectedArtifacts);
+        yield return new AssistantDoneEvent(conversationId);
+    }
+
+    private (ConversationKey Key, Guid ConversationId, List<ChatMessage> Stored) PrepareConversation(
+        AssistantChatRequest request,
+        AssistantScope scope)
+    {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
-            throw new AssistantServiceException(
-                "Groq API key is not configured.",
-                StatusCodes.Status503ServiceUnavailable);
+            _logger.LogError("Groq API key is not configured.");
+            throw Unreachable();
         }
 
         if (string.IsNullOrWhiteSpace(request.Message))
@@ -67,65 +240,88 @@ public sealed class AssistantChatService : IAssistantChatService
             ? existing
             : Guid.NewGuid();
 
-        var history = _conversations.GetOrCreate(conversationId).ToList();
-        if (history.Count == 0 || history[0] is not SystemChatMessage)
+        var key = new ConversationKey(scope.WorkspaceId, scope.UserId, conversationId);
+        var stored = _conversations.GetOrCreate(key)
+            .Where(message => message is not SystemChatMessage)
+            .ToList();
+        stored.Add(new UserChatMessage(request.Message.Trim()));
+        return (key, conversationId, stored);
+    }
+
+    private async Task<ChatCompletion> CompleteChatAsync(
+        ChatClient client,
+        IEnumerable<ChatMessage> window,
+        ChatCompletionOptions chatOptions,
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            history.Insert(0, new SystemChatMessage(BuildSystemPrompt()));
+            return await client.CompleteChatAsync(window, chatOptions, cancellationToken);
         }
-        else
+        catch (Exception ex) when (AssistantProviderFailures.IsUnreachable(ex))
         {
-            history[0] = new SystemChatMessage(BuildSystemPrompt());
+            throw Unreachable(ex);
+        }
+    }
+
+    private AssistantServiceException Unreachable(Exception? exception = null)
+    {
+        if (exception is not null)
+        {
+            _logger.LogError(exception, "Groq API is unreachable after retries.");
         }
 
-        history.Add(new UserChatMessage(request.Message.Trim()));
+        return new AssistantServiceException(
+            "The assistant is temporarily unavailable. Please try again in a moment.",
+            StatusCodes.Status503ServiceUnavailable,
+            AssistantServiceException.UnreachableCode);
+    }
 
-        var client = CreateChatClient();
-        var chatOptions = BuildChatOptions();
-        var collectedArtifacts = new List<AssistantArtifact>();
-        var finalText = string.Empty;
-
-        for (var turn = 0; turn < MaxToolTurns; turn++)
+    private List<ChatMessage> BuildModelWindow(IReadOnlyList<ChatMessage> stored)
+    {
+        var conversational = stored.Where(message => message is not SystemChatMessage).ToList();
+        if (conversational.Count > MaxHistoryMessages)
         {
-            ChatCompletion completion = await client.CompleteChatAsync(history, chatOptions, cancellationToken);
-            history.Add(new AssistantChatMessage(completion));
-
-            if (completion.FinishReason == ChatFinishReason.ToolCalls && completion.ToolCalls.Count > 0)
+            var start = conversational.Count - MaxHistoryMessages;
+            while (start < conversational.Count && conversational[start] is ToolChatMessage)
             {
-                foreach (var toolCall in completion.ToolCalls)
-                {
-                    var toolResult = await ExecuteToolCallAsync(toolCall, scope, cancellationToken);
-                    if (toolResult.Artifacts is { Count: > 0 })
-                    {
-                        collectedArtifacts.AddRange(toolResult.Artifacts);
-                    }
-
-                    history.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
-                }
-
-                continue;
+                start++;
             }
 
-            finalText = completion.Content.Count > 0
-                ? string.Concat(completion.Content.Select(part => part.Text))
-                : string.Empty;
-            break;
+            conversational = conversational[start..];
         }
 
-        if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
+        var window = new List<ChatMessage>(conversational.Count + 2)
         {
-            finalText = "Here are the results.";
-        }
+            new SystemChatMessage(StaticSystemPrompt),
+            new SystemChatMessage(BuildClockPrompt())
+        };
+        window.AddRange(conversational);
+        return window;
+    }
 
-        _conversations.Save(conversationId, history);
-
-        return new AssistantChatResponse(conversationId, finalText, collectedArtifacts);
+    private string BuildClockPrompt()
+    {
+        var local = _clock.LocalNow;
+        var utc = DateTime.UtcNow;
+        return
+            $"""
+            Client Local Time: {local:yyyy-MM-dd HH:mm} {_clock.TimeZoneId}
+            Server UTC: {utc:yyyy-MM-dd HH:mm:ss} UTC
+            Local calendar date for today, yesterday, and week boundaries: {local:yyyy-MM-dd}.
+            """;
     }
 
     private ChatClient CreateChatClient()
     {
+        var httpClient = _httpClientFactory.CreateClient(GroqOptions.HttpClientName);
         var clientOptions = new OpenAIClientOptions
         {
-            Endpoint = new Uri(_options.BaseUrl)
+            Endpoint = new Uri(_options.BaseUrl),
+            Transport = new HttpClientPipelineTransport(httpClient),
+            NetworkTimeout = TimeSpan.FromMinutes(2),
+            // Polly on the Groq HttpClient owns 429/5xx retries.
+            RetryPolicy = new ClientRetryPolicy(maxRetries: 0)
         };
 
         return new ChatClient(
@@ -188,32 +384,49 @@ public sealed class AssistantChatService : IAssistantChatService
             return new ToolResult(new { error = ex.Message });
         }
     }
-
-    private static string BuildSystemPrompt()
-    {
-        var now = DateTime.UtcNow;
-        return
-            $"""
-            You are the operational AI assistant for a multi-tenant catering ERP (mise.).
-            Current server UTC date/time: {now:yyyy-MM-dd HH:mm:ss} UTC (ISO date today: {now:yyyy-MM-dd}).
-            When the user mentions relative dates (yesterday, last Friday, прошлую пятницу, wczoraj, this week, last 10 days),
-            convert them to absolute ISO dates (yyyy-MM-dd) using the current UTC date above before calling tools.
-
-            Always reply in the same language as the user's latest message (Ukrainian, English, Polish, or Russian).
-            Tool names and parameter names stay in English. Do not invent data — call tools.
-            Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
-            Prefer concise answers and highlight key metrics from tool results.
-            """;
-    }
 }
 
 public sealed class AssistantServiceException : Exception
 {
+    public const string UnreachableCode = "assistant_unreachable";
+
     public int StatusCode { get; }
 
-    public AssistantServiceException(string message, int statusCode = StatusCodes.Status400BadRequest)
+    public string? Code { get; }
+
+    public AssistantServiceException(
+        string message,
+        int statusCode = StatusCodes.Status400BadRequest,
+        string? code = null)
         : base(message)
     {
         StatusCode = statusCode;
+        Code = code;
+    }
+}
+
+internal static class AssistantProviderFailures
+{
+    public static bool IsUnreachable(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is OperationCanceledException)
+            {
+                return false;
+            }
+
+            if (current is HttpRequestException)
+            {
+                return true;
+            }
+
+            if (current is ClientResultException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

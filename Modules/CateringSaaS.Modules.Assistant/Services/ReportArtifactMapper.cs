@@ -86,4 +86,15 @@ internal static class ReportArtifactMapper
 
         return node.GetValue<int?>() ?? fallback;
     }
+
+    public static TimeOnly? ReadTimeOnly(JsonObject args, string name)
+    {
+        var raw = ReadString(args, name);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return TimeOnly.TryParse(raw.Trim(), out var time) ? time : null;
+    }
 }

@@ -2,6 +2,7 @@ using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
+using CateringSaaS.Shared.MultiTenancy;
 using Microsoft.EntityFrameworkCore;
 using InventoryEntity = CateringSaaS.Modules.Inventory.Domain.Models.Inventory;
 
@@ -10,10 +11,12 @@ namespace CateringSaaS.Modules.Inventory.Services;
 public sealed class InventoryReportingQueries : IInventoryReportingQueries
 {
     private readonly AppDbContext _dbContext;
+    private readonly IClientTimeContext _clock;
 
-    public InventoryReportingQueries(AppDbContext dbContext)
+    public InventoryReportingQueries(AppDbContext dbContext, IClientTimeContext clock)
     {
         _dbContext = dbContext;
+        _clock = clock;
     }
 
     public async Task<IReadOnlyList<CriticalStockRow>> GetCriticalStockAsync(
@@ -57,12 +60,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         DateOnly dateFrom,
         DateOnly dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
-        var fromUtc = DateTime.SpecifyKind(dateFrom.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
-        var toUtcExclusive = DateTime.SpecifyKind(
-            dateTo.AddDays(1).ToDateTime(TimeOnly.MinValue),
-            DateTimeKind.Utc);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
 
         var query = _dbContext.Set<InventoryMovement>()
             .AsNoTracking()
@@ -93,7 +95,7 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             movements.Where(m => m.Type == type).Sum(m => m.TotalCost);
 
         var daily = movements
-            .GroupBy(m => DateOnly.FromDateTime(m.CreatedAt))
+            .GroupBy(m => LocalDate(m.CreatedAt))
             .OrderBy(g => g.Key)
             .Select(g => new StockMovementDayRow(
                 g.Key,
@@ -128,9 +130,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         DateOnly dateFrom,
         DateOnly dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
-        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
         var query = _dbContext.Set<InventoryMovement>()
             .AsNoTracking()
             .Where(m =>
@@ -188,9 +192,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         DateOnly dateFrom,
         DateOnly dateTo,
         Guid? supplierId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
-        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
         var query = _dbContext.Set<StockBatch>()
             .AsNoTracking()
             .Where(b =>
@@ -216,10 +222,33 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             .ToListAsync(cancellationToken);
     }
 
-    private static (DateTime FromUtc, DateTime ToUtcExclusive) UtcBounds(DateOnly dateFrom, DateOnly dateTo) =>
-        (
-            DateTime.SpecifyKind(dateFrom.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
-            DateTime.SpecifyKind(dateTo.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
+    private (DateTime FromUtc, DateTime ToUtcExclusive) UtcBounds(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        TimeOnly? timeFrom,
+        TimeOnly? timeTo)
+    {
+        var fromUtc = _clock.ToUtc(dateFrom, timeFrom ?? TimeOnly.MinValue);
+        var toUtcExclusive = timeTo is TimeOnly end
+            ? _clock.ToUtc(dateTo, end)
+            : _clock.ToUtc(dateTo.AddDays(1), TimeOnly.MinValue);
+
+        if (toUtcExclusive <= fromUtc)
+        {
+            toUtcExclusive = fromUtc.AddMinutes(1);
+        }
+
+        return (fromUtc, toUtcExclusive);
+    }
+
+    private DateOnly LocalDate(DateTime utc)
+    {
+        var specified = utc.Kind == DateTimeKind.Utc
+            ? utc
+            : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(specified, _clock.TimeZone);
+        return DateOnly.FromDateTime(local);
+    }
 
     private static decimal ThresholdFor(UnitOfMeasure unit) =>
         unit switch

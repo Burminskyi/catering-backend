@@ -18,7 +18,8 @@ public sealed class GetFoodCostTool : IAssistantTool
 
     public string Description =>
         "Food-cost percentage and usage efficiency: purchase vs consume vs order revenue, " +
-        "plus adjustments/spoilage. dateFrom/dateTo are ISO yyyy-MM-dd.";
+        "plus adjustments/spoilage. dateFrom/dateTo are local ISO dates (yyyy-MM-dd). " +
+        "Optional timeFrom/timeTo are local HH:mm bounds on stock movements.";
 
     public JsonObject ParametersSchema { get; } = new()
     {
@@ -34,6 +35,16 @@ public sealed class GetFoodCostTool : IAssistantTool
             {
                 ["type"] = "string",
                 ["description"] = "Range end ISO date (yyyy-MM-dd)."
+            },
+            ["timeFrom"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local start time HH:mm (24-hour)."
+            },
+            ["timeTo"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local end time HH:mm (24-hour), exclusive."
             }
         }
     };
@@ -43,7 +54,9 @@ public sealed class GetFoodCostTool : IAssistantTool
         _ = scope;
         var dateFrom = ReportArtifactMapper.ReadDateOnly(args, "dateFrom");
         var dateTo = ReportArtifactMapper.ReadDateOnly(args, "dateTo");
-        var report = await _reporting.GetFoodCostAsync(dateFrom, dateTo, ct);
+        var timeFrom = ReportArtifactMapper.ReadTimeOnly(args, "timeFrom");
+        var timeTo = ReportArtifactMapper.ReadTimeOnly(args, "timeTo");
+        var report = await _reporting.GetFoodCostAsync(dateFrom, dateTo, ct, timeFrom, timeTo);
         return ReportArtifactMapper.FromReport(report);
     }
 }

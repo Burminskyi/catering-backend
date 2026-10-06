@@ -18,7 +18,8 @@ public sealed class GetSupplierSpendTool : IAssistantTool
 
     public string Description =>
         "Supplier spend and purchase volume analysis (cost, quantity, receipt count). " +
-        "Optional supplierId filter. dateFrom/dateTo are ISO yyyy-MM-dd.";
+        "Optional supplierId filter. dateFrom/dateTo are local ISO dates. " +
+        "Optional timeFrom/timeTo (HH:mm) limit receipts to a local clock window.";
 
     public JsonObject ParametersSchema { get; } = new()
     {
@@ -39,6 +40,16 @@ public sealed class GetSupplierSpendTool : IAssistantTool
             {
                 ["type"] = "string",
                 ["description"] = "Optional supplier GUID."
+            },
+            ["timeFrom"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local start time HH:mm (24-hour)."
+            },
+            ["timeTo"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local end time HH:mm (24-hour), exclusive."
             }
         }
     };
@@ -49,7 +60,10 @@ public sealed class GetSupplierSpendTool : IAssistantTool
         var dateFrom = ReportArtifactMapper.ReadDateOnly(args, "dateFrom");
         var dateTo = ReportArtifactMapper.ReadDateOnly(args, "dateTo");
         var supplierId = ReportArtifactMapper.ReadGuid(args, "supplierId");
-        var report = await _reporting.GetSupplierSpendAsync(dateFrom, dateTo, supplierId, ct);
+        var timeFrom = ReportArtifactMapper.ReadTimeOnly(args, "timeFrom");
+        var timeTo = ReportArtifactMapper.ReadTimeOnly(args, "timeTo");
+        var report = await _reporting.GetSupplierSpendAsync(
+            dateFrom, dateTo, supplierId, ct, timeFrom, timeTo);
         return ReportArtifactMapper.FromReport(report);
     }
 }

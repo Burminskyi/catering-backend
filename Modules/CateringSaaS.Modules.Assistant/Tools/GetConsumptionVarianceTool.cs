@@ -18,7 +18,8 @@ public sealed class GetConsumptionVarianceTool : IAssistantTool
 
     public string Description =>
         "Ingredient consumption vs expected dish-production usage (variance / over-consume). " +
-        "Optional ingredientId filter. dateFrom/dateTo are ISO yyyy-MM-dd.";
+        "Optional ingredientId filter. dateFrom/dateTo are local ISO dates. " +
+        "Optional timeFrom/timeTo (HH:mm) limit actual stock consumption to a local clock window.";
 
     public JsonObject ParametersSchema { get; } = new()
     {
@@ -39,6 +40,16 @@ public sealed class GetConsumptionVarianceTool : IAssistantTool
             {
                 ["type"] = "string",
                 ["description"] = "Optional ingredient GUID to focus on one SKU."
+            },
+            ["timeFrom"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local start time HH:mm (24-hour)."
+            },
+            ["timeTo"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Optional local end time HH:mm (24-hour), exclusive."
             }
         }
     };
@@ -49,7 +60,10 @@ public sealed class GetConsumptionVarianceTool : IAssistantTool
         var dateFrom = ReportArtifactMapper.ReadDateOnly(args, "dateFrom");
         var dateTo = ReportArtifactMapper.ReadDateOnly(args, "dateTo");
         var ingredientId = ReportArtifactMapper.ReadGuid(args, "ingredientId");
-        var report = await _reporting.GetConsumptionVarianceAsync(dateFrom, dateTo, ingredientId, ct);
+        var timeFrom = ReportArtifactMapper.ReadTimeOnly(args, "timeFrom");
+        var timeTo = ReportArtifactMapper.ReadTimeOnly(args, "timeTo");
+        var report = await _reporting.GetConsumptionVarianceAsync(
+            dateFrom, dateTo, ingredientId, ct, timeFrom, timeTo);
         return ReportArtifactMapper.FromReport(report);
     }
 }

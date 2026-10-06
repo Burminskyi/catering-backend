@@ -21,7 +21,9 @@ public interface IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null);
 
     Task<ReportResponse> GetDeliveryAuditAsync(
         DateOnly? dateFrom,
@@ -46,12 +48,16 @@ public interface IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null);
 
     Task<ReportResponse> GetFoodCostAsync(
         DateOnly? dateFrom,
         DateOnly? dateTo,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null);
 
     Task<ReportResponse> GetShortageForecastAsync(
         DateOnly? targetDate,
@@ -68,7 +74,9 @@ public interface IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? supplierId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null);
 
     Task<ReportResponse> GetCancellationsAsync(
         DateOnly? dateFrom,
@@ -80,6 +88,7 @@ public interface IReportingService
 public sealed class ReportingService : IReportingService
 {
     private readonly ITenantContext _tenantContext;
+    private readonly IClientTimeContext _clock;
     private readonly IOrderReportingQueries _orders;
     private readonly IInventoryReportingQueries _inventory;
     private readonly IClientCompanyLookup _clients;
@@ -89,6 +98,7 @@ public sealed class ReportingService : IReportingService
 
     public ReportingService(
         ITenantContext tenantContext,
+        IClientTimeContext clock,
         IOrderReportingQueries orders,
         IInventoryReportingQueries inventory,
         IClientCompanyLookup clients,
@@ -97,6 +107,7 @@ public sealed class ReportingService : IReportingService
         IIngredientCatalog ingredients)
     {
         _tenantContext = tenantContext;
+        _clock = clock;
         _orders = orders;
         _inventory = inventory;
         _clients = clients;
@@ -110,7 +121,7 @@ public sealed class ReportingService : IReportingService
         CancellationToken cancellationToken = default)
     {
         var workspaceId = RequireWorkspace();
-        var day = targetDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var day = targetDate ?? _clock.LocalToday;
 
         var snapshot = await _orders.GetTodayOperationsAsync(workspaceId, day, cancellationToken);
         var critical = await _inventory.GetCriticalStockAsync(workspaceId, cancellationToken);
@@ -299,12 +310,14 @@ public sealed class ReportingService : IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
         var snapshot = await _inventory.GetStockMovementsAsync(
-            workspaceId, from, to, ingredientId, cancellationToken);
+            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo);
 
         var usedShare = snapshot.PurchaseQuantity > 0
             ? Math.Round(100m * snapshot.ConsumeQuantity / snapshot.PurchaseQuantity, 1)
@@ -588,7 +601,9 @@ public sealed class ReportingService : IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? ingredientId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
@@ -603,7 +618,7 @@ public sealed class ReportingService : IReportingService
         }
 
         var actual = await _inventory.GetConsumptionByIngredientAsync(
-            workspaceId, from, to, ingredientId, cancellationToken);
+            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo);
         var actualById = actual.ToDictionary(r => r.IngredientId);
 
         var ids = expected.Keys.Concat(actualById.Keys).Distinct().ToArray();
@@ -683,11 +698,14 @@ public sealed class ReportingService : IReportingService
     public async Task<ReportResponse> GetFoodCostAsync(
         DateOnly? dateFrom,
         DateOnly? dateTo,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
-        var stock = await _inventory.GetStockMovementsAsync(workspaceId, from, to, null, cancellationToken);
+        var stock = await _inventory.GetStockMovementsAsync(
+            workspaceId, from, to, null, cancellationToken, timeFrom, timeTo);
         var revenueRows = await _orders.GetRevenueByClientAsync(workspaceId, from, to, null, cancellationToken);
         var revenue = revenueRows.Sum(r => r.Revenue);
         var foodCost = revenue > 0 ? Math.Round(100m * stock.ConsumeCost / revenue, 1) : 0m;
@@ -749,7 +767,7 @@ public sealed class ReportingService : IReportingService
         CancellationToken cancellationToken = default)
     {
         var workspaceId = RequireWorkspace();
-        var day = targetDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var day = targetDate ?? _clock.LocalToday;
         var demand = await _orders.GetConfirmedDemandAsync(workspaceId, day, cancellationToken);
         var expected = await ExpandExpectedUsageAsync(workspaceId, demand, cancellationToken);
         var balances = (await _inventory.GetIngredientBalancesAsync(
@@ -894,11 +912,14 @@ public sealed class ReportingService : IReportingService
         DateOnly? dateFrom,
         DateOnly? dateTo,
         Guid? supplierId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeOnly? timeFrom = null,
+        TimeOnly? timeTo = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
-        var rows = await _inventory.GetSupplierSpendAsync(workspaceId, from, to, supplierId, cancellationToken);
+        var rows = await _inventory.GetSupplierSpendAsync(
+            workspaceId, from, to, supplierId, cancellationToken, timeFrom, timeTo);
         var total = rows.Sum(r => r.Spend);
 
         var metrics = new List<ReportMetric>
@@ -1065,9 +1086,9 @@ public sealed class ReportingService : IReportingService
         return _tenantContext.WorkspaceId;
     }
 
-    private static (DateOnly From, DateOnly To) ResolveRange(DateOnly? dateFrom, DateOnly? dateTo)
+    private (DateOnly From, DateOnly To) ResolveRange(DateOnly? dateFrom, DateOnly? dateTo)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = _clock.LocalToday;
         var to = dateTo ?? today;
         var from = dateFrom ?? to.AddDays(-6);
         if (from > to)

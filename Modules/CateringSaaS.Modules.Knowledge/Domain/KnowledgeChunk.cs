@@ -28,4 +28,7 @@ public static class KnowledgeEmbeddingConstants
 {
     public const string DefaultModel = "BAAI/bge-m3";
     public const int Dimensions = 1024;
+
+    /// <summary>Cosine distance cutoff. Above this, a chunk is treated as irrelevant (similarity below ~0.55).</summary>
+    public const double MaxCosineDistance = 0.45;
 }

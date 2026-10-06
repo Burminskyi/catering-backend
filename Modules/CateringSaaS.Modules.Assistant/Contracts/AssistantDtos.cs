@@ -31,3 +31,11 @@ public sealed record AssistantChatResponse(
     Guid ConversationId,
     string Text,
     IReadOnlyList<AssistantArtifact> Artifacts);
+
+public abstract record AssistantStreamEvent;
+
+public sealed record AssistantTokenEvent(string Text) : AssistantStreamEvent;
+
+public sealed record AssistantArtifactsEvent(IReadOnlyList<AssistantArtifact> Artifacts) : AssistantStreamEvent;
+
+public sealed record AssistantDoneEvent(Guid ConversationId) : AssistantStreamEvent;

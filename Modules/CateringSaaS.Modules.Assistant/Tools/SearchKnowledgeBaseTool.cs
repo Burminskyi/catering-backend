@@ -66,7 +66,7 @@ public sealed class SearchKnowledgeBaseTool : IAssistantTool
         }).ToList();
 
         var formattedForLlm = hits.Count == 0
-            ? "No matching knowledge-base chunks were found for this workspace."
+            ? "No relevant documents were found. The closest chunks were below the similarity threshold, so do not answer from the knowledge base."
             : string.Join(
                 "\n\n---\n\n",
                 hits.Select((hit, index) =>
@@ -97,8 +97,9 @@ public sealed class SearchKnowledgeBaseTool : IAssistantTool
         return new ToolResult(
             new
             {
-                count = hits.Count,
-                query,
+            count = hits.Count,
+            relevant = hits.Count > 0,
+            query,
                 topK,
                 formattedContext = formattedForLlm,
                 items

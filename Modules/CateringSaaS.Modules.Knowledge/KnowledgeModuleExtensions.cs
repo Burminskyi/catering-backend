@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Knowledge.Configuration;
 using CateringSaaS.Modules.Knowledge.Data;
 using CateringSaaS.Modules.Knowledge.Endpoints;
+using CateringSaaS.Modules.Knowledge.Http;
 using CateringSaaS.Modules.Knowledge.Services;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
@@ -30,7 +31,8 @@ public static class KnowledgeModuleExtensions
                 : options.BaseUrl.TrimEnd('/');
             client.BaseAddress = new Uri(baseUrl + "/");
             client.Timeout = TimeSpan.FromMinutes(3);
-        });
+        })
+        .AddPolicyHandler(TransientHttpRetryPolicy.Create());
 
         services.AddSingleton<ITextChunker, TextChunker>();
         services.AddScoped<IDocumentParser, DocumentParser>();

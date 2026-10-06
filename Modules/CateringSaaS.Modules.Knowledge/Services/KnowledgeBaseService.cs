@@ -84,6 +84,8 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
             document.Title = document.OriginalFileName;
         }
 
+        await ReplaceExistingFileAsync(workspaceId, document.OriginalFileName, cancellationToken);
+
         await _dbContext.Set<KnowledgeDocument>().AddAsync(document, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -264,7 +266,29 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
                 VectorDbFunctionsExtensions.CosineDistance(c.Embedding, queryVector)))
             .ToListAsync(cancellationToken);
 
-        return hits;
+        return hits
+            .Where(hit => hit.Distance <= KnowledgeEmbeddingConstants.MaxCosineDistance)
+            .ToList();
+    }
+
+    private async Task ReplaceExistingFileAsync(
+        Guid workspaceId,
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        var normalized = fileName.Trim();
+        var existing = await _dbContext.Set<KnowledgeDocument>()
+            .IgnoreQueryFilters()
+            .Where(d => d.WorkspaceId == workspaceId)
+            .Where(d => d.OriginalFileName.ToLower() == normalized.ToLower())
+            .ToListAsync(cancellationToken);
+
+        if (existing.Count == 0)
+        {
+            return;
+        }
+
+        _dbContext.Set<KnowledgeDocument>().RemoveRange(existing);
     }
 
     private static void EnsureWorkspace(Guid workspaceId)

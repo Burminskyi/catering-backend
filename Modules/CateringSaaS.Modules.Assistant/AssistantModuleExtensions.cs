@@ -1,6 +1,7 @@
 using CateringSaaS.Modules.Assistant.Configuration;
 using CateringSaaS.Modules.Assistant.Contracts;
 using CateringSaaS.Modules.Assistant.Endpoints;
+using CateringSaaS.Modules.Assistant.Http;
 using CateringSaaS.Modules.Assistant.Services;
 using CateringSaaS.Modules.Assistant.Tools;
 using Microsoft.AspNetCore.Builder;
@@ -17,6 +18,13 @@ public static class AssistantModuleExtensions
         IConfiguration configuration)
     {
         services.Configure<GroqOptions>(configuration.GetSection(GroqOptions.SectionName));
+
+        services.AddHttpClient(GroqOptions.HttpClientName, client =>
+        {
+            // The OpenAI pipeline applies NetworkTimeout. Polly retries 429/5xx on this handler.
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        })
+        .AddPolicyHandler(TransientHttpRetryPolicy.Create());
 
         services.AddSingleton<IAssistantConversationStore, InMemoryAssistantConversationStore>();
         services.AddScoped<IAssistantChatService, AssistantChatService>();
@@ -47,6 +55,7 @@ public static class AssistantModuleExtensions
                 "SuperAdmin"));
 
         group.MapChatEndpoint();
+        group.MapChatStreamEndpoint();
 
         return app;
     }
