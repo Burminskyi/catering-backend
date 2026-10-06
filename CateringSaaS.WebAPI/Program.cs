@@ -1,3 +1,4 @@
+using CateringSaaS.Modules.Assistant;
 using CateringSaaS.Modules.Identity;
 using CateringSaaS.Modules.Inventory;
 using CateringSaaS.Modules.Kitchen;
@@ -76,6 +77,7 @@ builder.Services.AddMenuModule();
 builder.Services.AddOrderingModule();
 builder.Services.AddKitchenModule();
 builder.Services.AddReportingModule();
+builder.Services.AddAssistantModule(builder.Configuration);
 builder.Services.AddScoped<CateringSaaS.Shared.Contracts.IOperationalDemoSeeder, CateringSaaS.WebAPI.Seed.OperationalDemoDataSeeder>();
 
 var app = builder.Build();
@@ -111,6 +113,7 @@ app.MapMenuEndpoints();
 app.MapOrderingEndpoints();
 app.MapKitchenEndpoints();
 app.MapReportingEndpoints();
+app.MapAssistantEndpoints();
 
 try
 {

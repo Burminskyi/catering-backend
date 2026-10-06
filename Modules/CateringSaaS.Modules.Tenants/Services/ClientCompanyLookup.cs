@@ -43,4 +43,29 @@ public sealed class ClientCompanyLookup : IClientCompanyLookup
 
         return rows.ToDictionary(c => c.Id);
     }
+
+    public async Task<IReadOnlyList<ClientCompanyContact>> SearchByNameAsync(
+        Guid workspaceId,
+        string query,
+        int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var take = Math.Clamp(limit, 1, 50);
+        var term = (query ?? string.Empty).Trim();
+        if (term.Length == 0)
+        {
+            return Array.Empty<ClientCompanyContact>();
+        }
+
+        var pattern = $"%{term}%";
+
+        return await _dbContext.Set<ClientCompany>()
+            .AsNoTracking()
+            .Where(c => c.WorkspaceId == workspaceId && c.IsActive)
+            .Where(c => EF.Functions.ILike(c.Name, pattern))
+            .OrderBy(c => c.Name)
+            .Take(take)
+            .Select(c => new ClientCompanyContact(c.Id, c.Name, c.Address, c.ContactPhone, c.ContactName))
+            .ToListAsync(cancellationToken);
+    }
 }

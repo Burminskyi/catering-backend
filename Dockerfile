@@ -13,6 +13,7 @@ COPY ["Modules/CateringSaaS.Modules.Inventory/CateringSaaS.Modules.Inventory.csp
 COPY ["Modules/CateringSaaS.Modules.Menu/CateringSaaS.Modules.Menu.csproj", "Modules/CateringSaaS.Modules.Menu/"]
 COPY ["Modules/CateringSaaS.Modules.Kitchen/CateringSaaS.Modules.Kitchen.csproj", "Modules/CateringSaaS.Modules.Kitchen/"]
 COPY ["Modules/CateringSaaS.Modules.Reporting/CateringSaaS.Modules.Reporting.csproj", "Modules/CateringSaaS.Modules.Reporting/"]
+COPY ["Modules/CateringSaaS.Modules.Assistant/CateringSaaS.Modules.Assistant.csproj", "Modules/CateringSaaS.Modules.Assistant/"]
 
 # Восстанавливаем зависимости
 RUN dotnet restore "CateringSaaS.sln"

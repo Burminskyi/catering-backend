@@ -18,4 +18,13 @@ public interface IClientCompanyLookup
         Guid workspaceId,
         IEnumerable<Guid> clientCompanyIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Case-insensitive partial name search within a workspace. WorkspaceId must come from JWT scope.
+    /// </summary>
+    Task<IReadOnlyList<ClientCompanyContact>> SearchByNameAsync(
+        Guid workspaceId,
+        string query,
+        int limit = 10,
+        CancellationToken cancellationToken = default);
 }
