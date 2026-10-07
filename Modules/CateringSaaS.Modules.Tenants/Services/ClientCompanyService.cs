@@ -47,6 +47,7 @@ public sealed class ClientCompanyService : IClientCompanyService
                 c.WorkspaceId,
                 c.Name,
                 c.IsActive,
+                c.OrderCadence.ToString(),
                 c.Address,
                 c.ContactPhone,
                 c.ContactName))
@@ -63,6 +64,8 @@ public sealed class ClientCompanyService : IClientCompanyService
         {
             throw new TenantServiceException("Name is required.");
         }
+
+        var orderCadence = ParseOrderCadence(request.OrderCadence);
 
         var hasAdminDetails =
             !string.IsNullOrWhiteSpace(request.AdminUsername)
@@ -92,6 +95,7 @@ public sealed class ClientCompanyService : IClientCompanyService
                 Id = Guid.NewGuid(),
                 WorkspaceId = workspaceId,
                 Name = request.Name.Trim(),
+                OrderCadence = orderCadence,
                 Address = NormalizeOptional(request.Address, 500),
                 ContactPhone = NormalizeOptional(request.ContactPhone, 40),
                 ContactName = NormalizeOptional(request.ContactName, 200),
@@ -121,6 +125,7 @@ public sealed class ClientCompanyService : IClientCompanyService
                 client.WorkspaceId,
                 client.Name,
                 client.IsActive,
+                client.OrderCadence.ToString(),
                 client.Address,
                 client.ContactPhone,
                 client.ContactName);
@@ -130,6 +135,23 @@ public sealed class ClientCompanyService : IClientCompanyService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static ClientOrderCadence ParseOrderCadence(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return ClientOrderCadence.Daily;
+        }
+
+        if (Enum.TryParse<ClientOrderCadence>(value.Trim(), ignoreCase: true, out var parsed)
+            && Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        throw new TenantServiceException(
+            $"Invalid OrderCadence '{value}'. Allowed: {string.Join(", ", Enum.GetNames<ClientOrderCadence>())}.");
     }
 
     private static string? NormalizeOptional(string? value, int maxLength)

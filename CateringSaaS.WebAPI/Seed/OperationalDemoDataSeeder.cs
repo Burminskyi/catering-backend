@@ -84,16 +84,20 @@ public sealed class OperationalDemoDataSeeder : IOperationalDemoSeeder
 
     private async Task<List<ClientCompany>> EnsureClientsAsync(Guid workspaceId, CancellationToken ct)
     {
-        var defs = new (Guid Id, string Name, string Address, string Contact, string Phone)[]
+        var defs = new (Guid Id, string Name, string Address, string Contact, string Phone, ClientOrderCadence Cadence)[]
         {
             (DevelopmentSeedIds.MockClientCompanyId, "EPAM Systems",
-                "14a Akademika Filatova St, Kyiv 03124", "Olena Kovalenko", "+380 44 585 1100"),
+                "14a Akademika Filatova St, Kyiv 03124", "Olena Kovalenko", "+380 44 585 1100",
+                ClientOrderCadence.Weekly),
             (DevelopmentSeedIds.SoftServeClientId, "SoftServe",
-                "52 Velyka Vasylkivska St, Kyiv 03150", "Andriy Melnyk", "+380 32 240 9090"),
+                "52 Velyka Vasylkivska St, Kyiv 03150", "Andriy Melnyk", "+380 32 240 9090",
+                ClientOrderCadence.Daily),
             (DevelopmentSeedIds.SigmaSoftwareClientId, "Sigma Software",
-                "1 Hryhorenka Ave, Kyiv 02140", "Iryna Bondar", "+380 57 766 0050"),
+                "1 Hryhorenka Ave, Kyiv 02140", "Iryna Bondar", "+380 57 766 0050",
+                ClientOrderCadence.Weekly),
             (DevelopmentSeedIds.GlobalLogicClientId, "GlobalLogic",
-                "1D Sportyvna Sq, Kyiv 01023", "Dmytro Shevchenko", "+380 44 594 6500"),
+                "1D Sportyvna Sq, Kyiv 01023", "Dmytro Shevchenko", "+380 44 594 6500",
+                ClientOrderCadence.Daily),
         };
 
         var set = _db.Set<ClientCompany>();
@@ -112,6 +116,7 @@ public sealed class OperationalDemoDataSeeder : IOperationalDemoSeeder
                     Address = def.Address,
                     ContactName = def.Contact,
                     ContactPhone = def.Phone,
+                    OrderCadence = def.Cadence,
                     IsActive = true
                 };
                 await set.AddAsync(existing, ct);
@@ -122,6 +127,7 @@ public sealed class OperationalDemoDataSeeder : IOperationalDemoSeeder
                 existing.Address = def.Address;
                 existing.ContactName = def.Contact;
                 existing.ContactPhone = def.Phone;
+                existing.OrderCadence = def.Cadence;
                 existing.IsActive = true;
                 existing.WorkspaceId = workspaceId;
             }

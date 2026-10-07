@@ -68,4 +68,18 @@ public sealed class ClientCompanyLookup : IClientCompanyLookup
             .Select(c => new ClientCompanyContact(c.Id, c.Name, c.Address, c.ContactPhone, c.ContactName))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<string?> GetOrderCadenceAsync(
+        Guid workspaceId,
+        Guid clientCompanyId,
+        CancellationToken cancellationToken = default)
+    {
+        var cadence = await _dbContext.Set<ClientCompany>()
+            .AsNoTracking()
+            .Where(c => c.Id == clientCompanyId && c.WorkspaceId == workspaceId)
+            .Select(c => (ClientOrderCadence?)c.OrderCadence)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return cadence?.ToString();
+    }
 }

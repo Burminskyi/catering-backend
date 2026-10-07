@@ -1,7 +1,9 @@
 using CateringSaaS.Modules.Ordering.Domain;
 using CateringSaaS.Modules.Ordering.DTOs;
+using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,15 +25,21 @@ public sealed class MealReviewService : IMealReviewService
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IWorkspaceNotificationPublisher _notifications;
+    private readonly IClientCompanyLookup _clientCompanies;
 
     public MealReviewService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        IWorkspaceNotificationPublisher notifications,
+        IClientCompanyLookup clientCompanies)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
+        _notifications = notifications;
+        _clientCompanies = clientCompanies;
     }
 
     public async Task<MealReviewResponse> CreateAsync(
@@ -145,6 +153,27 @@ public sealed class MealReviewService : IMealReviewService
 
         await _dbContext.Set<MealReview>().AddAsync(review, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (review.IsReclamation)
+        {
+            var contacts = await _clientCompanies.GetContactsAsync(
+                workspaceId,
+                [clientCompanyId],
+                cancellationToken);
+            var companyName = contacts.TryGetValue(clientCompanyId, out var contact)
+                ? contact.Name
+                : "Client";
+
+            await _notifications.PublishAsync(
+                new WorkspaceNotificationCreateRequest(
+                    workspaceId,
+                    WorkspaceNotificationTypes.NewReclamation,
+                    $"New reclamation ({review.Rating}★)",
+                    $"{companyName} — delivery {review.TargetDate:yyyy-MM-dd}.",
+                    "/reclamations",
+                    review.Id),
+                cancellationToken);
+        }
 
         return ToResponse(review);
     }

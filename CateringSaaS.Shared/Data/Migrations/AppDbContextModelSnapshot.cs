@@ -838,6 +838,11 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("OrderCadence")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
@@ -890,6 +895,86 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("workspaces", (string)null);
                 });
 
+            modelBuilder.Entity("CateringSaaS.Shared.Notifications.WorkspaceNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LinkPath")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateOnly?>("RelatedDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TargetClientCompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TargetUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "Audience", "TargetUserId");
+
+                    b.HasIndex("WorkspaceId", "CreatedAtUtc");
+
+                    b.HasIndex("WorkspaceId", "Type", "RelatedEntityId");
+
+                    b.HasIndex("WorkspaceId", "Type", "Audience", "TargetClientCompanyId", "RelatedDate");
+
+                    b.ToTable("workspace_notifications", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Shared.Notifications.WorkspaceNotificationRead", b =>
+                {
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("NotificationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("workspace_notification_reads", (string)null);
+                });
+
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.Inventory", b =>
                 {
                     b.HasOne("CateringSaaS.Modules.Inventory.Domain.Models.Ingredient", "Ingredient")
@@ -899,6 +984,17 @@ namespace CateringSaaS.Shared.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Ingredient");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Shared.Notifications.WorkspaceNotificationRead", b =>
+                {
+                    b.HasOne("CateringSaaS.Shared.Notifications.WorkspaceNotification", "Notification")
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.InventoryMovement", b =>

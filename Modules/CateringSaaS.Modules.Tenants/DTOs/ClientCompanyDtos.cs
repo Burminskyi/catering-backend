@@ -5,12 +5,14 @@ public sealed record ClientCompanyResponse(
     Guid WorkspaceId,
     string Name,
     bool IsActive,
+    string OrderCadence,
     string? Address,
     string? ContactPhone,
     string? ContactName);
 
 public sealed record CreateClientCompanyRequest(
     string Name,
+    string? OrderCadence,
     string? Address,
     string? ContactPhone,
     string? ContactName,

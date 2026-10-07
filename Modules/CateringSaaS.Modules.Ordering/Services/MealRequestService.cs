@@ -3,6 +3,7 @@ using CateringSaaS.Modules.Ordering.DTOs;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,19 +37,22 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
     private readonly ICurrentUserContext _currentUser;
     private readonly IMenuItemOrderCatalog _menuItemCatalog;
     private readonly IUserDisplayLookup _userDisplayLookup;
+    private readonly IWorkspaceNotificationPublisher _notifications;
 
     public EmployeeMealRequestService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
         IMenuItemOrderCatalog menuItemCatalog,
-        IUserDisplayLookup userDisplayLookup)
+        IUserDisplayLookup userDisplayLookup,
+        IWorkspaceNotificationPublisher notifications)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _menuItemCatalog = menuItemCatalog;
         _userDisplayLookup = userDisplayLookup;
+        _notifications = notifications;
     }
 
     public async Task<MealRequestResponse> CreateAsync(
@@ -135,6 +139,21 @@ public sealed class EmployeeMealRequestService : IEmployeeMealRequestService
 
         await _dbContext.Set<EmployeeMealRequest>().AddAsync(mealRequest, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var submittedCount = await _dbContext.Set<EmployeeMealRequest>()
+            .CountAsync(
+                r => r.WorkspaceId == workspaceId
+                     && r.ClientCompanyId == clientCompanyId
+                     && r.TargetDate == request.TargetDate
+                     && r.Status == EmployeeMealRequestStatus.Submitted,
+                cancellationToken);
+
+        await _notifications.UpsertClientMealRequestDigestAsync(
+            workspaceId,
+            clientCompanyId,
+            request.TargetDate,
+            submittedCount,
+            cancellationToken);
 
         return ToResponse(mealRequest);
     }
@@ -253,19 +272,25 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
     private readonly ICurrentUserContext _currentUser;
     private readonly IMenuItemOrderCatalog _menuItemCatalog;
     private readonly IUserDisplayLookup _userDisplayLookup;
+    private readonly IWorkspaceNotificationPublisher _notifications;
+    private readonly IClientCompanyLookup _clientCompanies;
 
     public ClientAdminMealRequestService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
         IMenuItemOrderCatalog menuItemCatalog,
-        IUserDisplayLookup userDisplayLookup)
+        IUserDisplayLookup userDisplayLookup,
+        IWorkspaceNotificationPublisher notifications,
+        IClientCompanyLookup clientCompanies)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _menuItemCatalog = menuItemCatalog;
         _userDisplayLookup = userDisplayLookup;
+        _notifications = notifications;
+        _clientCompanies = clientCompanies;
     }
 
     public async Task<IReadOnlyList<MealRequestListItemResponse>> GetSubmittedForDateAsync(
@@ -395,6 +420,31 @@ public sealed class ClientAdminMealRequestService : IClientAdminMealRequestServi
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        await _notifications.UpsertClientMealRequestDigestAsync(
+            workspaceId,
+            clientCompanyId,
+            request.TargetDate,
+            submittedCount: 0,
+            cancellationToken);
+
+        var contacts = await _clientCompanies.GetContactsAsync(
+            workspaceId,
+            [clientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(clientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                workspaceId,
+                WorkspaceNotificationTypes.OrderCreated,
+                $"New order: {companyName}",
+                $"Delivery {order.TargetDate:yyyy-MM-dd} · {submitted.Count} meal requests · {order.TotalAmount:0.##}",
+                "/orders",
+                order.Id),
+            cancellationToken);
 
         return new ConsolidateMealRequestsResponse(
             order.Id,

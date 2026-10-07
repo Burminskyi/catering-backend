@@ -27,4 +27,10 @@ public interface IClientCompanyLookup
         string query,
         int limit = 10,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Returns Daily / Weekly for notification cadence windows. Null if company missing.</summary>
+    Task<string?> GetOrderCadenceAsync(
+        Guid workspaceId,
+        Guid clientCompanyId,
+        CancellationToken cancellationToken = default);
 }

@@ -76,7 +76,9 @@ public static class LoginEndpoint
             || !user.IsActive
             || !passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            return Results.Unauthorized();
+            return Results.Json(
+                new { message = "Invalid username or password." },
+                statusCode: StatusCodes.Status401Unauthorized);
         }
 
         var token = tokenGenerator.Generate(user);

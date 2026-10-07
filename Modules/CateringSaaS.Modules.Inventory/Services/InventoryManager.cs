@@ -2,6 +2,7 @@ using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using InventoryEntity = CateringSaaS.Modules.Inventory.Domain.Models.Inventory;
@@ -12,11 +13,16 @@ public sealed class InventoryManager : IInventoryManager
 {
     private readonly AppDbContext _dbContext;
     private readonly IIngredientCatalog _ingredientCatalog;
+    private readonly IWorkspaceNotificationPublisher _notifications;
 
-    public InventoryManager(AppDbContext dbContext, IIngredientCatalog ingredientCatalog)
+    public InventoryManager(
+        AppDbContext dbContext,
+        IIngredientCatalog ingredientCatalog,
+        IWorkspaceNotificationPublisher notifications)
     {
         _dbContext = dbContext;
         _ingredientCatalog = ingredientCatalog;
+        _notifications = notifications;
     }
 
     public async Task<StockAvailabilityResult> CheckStockAvailabilityAsync(
@@ -119,6 +125,8 @@ public sealed class InventoryManager : IInventoryManager
                     StatusCodes.Status409Conflict);
             }
 
+            var quantityBefore = inventory.TotalQuantity;
+
             var batches = await _dbContext.Set<StockBatch>()
                 .Where(b =>
                     b.WorkspaceId == workspaceId
@@ -172,9 +180,40 @@ public sealed class InventoryManager : IInventoryManager
                     CreatedAt = DateTime.UtcNow
                 },
                 cancellationToken);
+
+            await TryNotifyLowStockAsync(
+                workspaceId,
+                ingredient,
+                quantityBefore,
+                inventory.TotalQuantity,
+                cancellationToken);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task TryNotifyLowStockAsync(
+        Guid workspaceId,
+        Ingredient ingredient,
+        decimal quantityBefore,
+        decimal quantityAfter,
+        CancellationToken cancellationToken)
+    {
+        var threshold = StockThreshold.ForUnitEnum((int)ingredient.BaseUnit);
+        if (quantityBefore < threshold || quantityAfter >= threshold)
+        {
+            return;
+        }
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                workspaceId,
+                WorkspaceNotificationTypes.LowStock,
+                $"Low stock: {ingredient.Name}",
+                $"Remaining {quantityAfter:0.##} {ingredient.BaseUnit} (threshold {threshold:0.##}).",
+                "/inventory",
+                ingredient.Id),
+            cancellationToken);
     }
 
     public async Task RestoreStockAsync(

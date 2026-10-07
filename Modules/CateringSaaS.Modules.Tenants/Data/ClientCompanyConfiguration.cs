@@ -28,6 +28,11 @@ public sealed class ClientCompanyConfiguration : IEntityTypeConfiguration<Client
         builder.Property(c => c.ContactName)
             .HasMaxLength(200);
 
+        builder.Property(c => c.OrderCadence)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
         builder.Property(c => c.IsActive)
             .IsRequired();
 

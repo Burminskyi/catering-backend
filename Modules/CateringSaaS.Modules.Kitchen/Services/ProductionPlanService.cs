@@ -2,6 +2,7 @@ using CateringSaaS.Modules.Kitchen.DTOs;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,7 @@ public sealed class ProductionPlanService : IProductionPlanService
     private readonly IDishRecipeCatalog _recipeCatalog;
     private readonly IIngredientCatalog _ingredientCatalog;
     private readonly IInventoryManager _inventoryManager;
+    private readonly IWorkspaceNotificationPublisher _notifications;
 
     public ProductionPlanService(
         AppDbContext dbContext,
@@ -37,7 +39,8 @@ public sealed class ProductionPlanService : IProductionPlanService
         IProductionOrderGateway orderGateway,
         IDishRecipeCatalog recipeCatalog,
         IIngredientCatalog ingredientCatalog,
-        IInventoryManager inventoryManager)
+        IInventoryManager inventoryManager,
+        IWorkspaceNotificationPublisher notifications)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
@@ -45,6 +48,7 @@ public sealed class ProductionPlanService : IProductionPlanService
         _recipeCatalog = recipeCatalog;
         _ingredientCatalog = ingredientCatalog;
         _inventoryManager = inventoryManager;
+        _notifications = notifications;
     }
 
     public async Task<ProductionPlanResponse> GetPlanAsync(
@@ -125,6 +129,19 @@ public sealed class ProductionPlanService : IProductionPlanService
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+
+            if (ordersUpdated > 0)
+            {
+                await _notifications.PublishAsync(
+                    new WorkspaceNotificationCreateRequest(
+                        workspaceId,
+                        WorkspaceNotificationTypes.OrderInProduction,
+                        "Production plan started",
+                        $"{ordersUpdated} order(s) · {request.TargetDate:yyyy-MM-dd}",
+                        "/kitchen",
+                        Audience: WorkspaceNotificationAudiences.Kitchen),
+                    cancellationToken);
+            }
 
             var ingredientsDeducted = await MapIngredientResponsesAsync(
                 workspaceId,

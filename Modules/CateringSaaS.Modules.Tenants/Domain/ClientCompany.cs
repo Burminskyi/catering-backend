@@ -16,5 +16,10 @@ public class ClientCompany
 
     public string? ContactName { get; set; }
 
+    /// <summary>
+    /// Operational planning cadence for this office (daily vs weekly ahead).
+    /// </summary>
+    public ClientOrderCadence OrderCadence { get; set; } = ClientOrderCadence.Daily;
+
     public bool IsActive { get; set; } = true;
 }

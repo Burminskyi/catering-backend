@@ -3,6 +3,7 @@ using CateringSaaS.Modules.Ordering.DTOs;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,17 +45,23 @@ public sealed class ClientOrderService : IClientOrderService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly IMenuItemOrderCatalog _menuItemCatalog;
+    private readonly IWorkspaceNotificationPublisher _notifications;
+    private readonly IClientCompanyLookup _clientCompanies;
 
     public ClientOrderService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        IMenuItemOrderCatalog menuItemCatalog)
+        IMenuItemOrderCatalog menuItemCatalog,
+        IWorkspaceNotificationPublisher notifications,
+        IClientCompanyLookup clientCompanies)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _menuItemCatalog = menuItemCatalog;
+        _notifications = notifications;
+        _clientCompanies = clientCompanies;
     }
 
     public async Task<OrderResponse> CreateAsync(
@@ -117,6 +124,12 @@ public sealed class ClientOrderService : IClientOrderService
 
         await _dbContext.Set<Order>().AddAsync(order, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await PublishOrderNotificationAsync(
+            order,
+            WorkspaceNotificationTypes.OrderCreated,
+            "New order",
+            cancellationToken);
 
         return OrderDtoMapper.ToResponse(order);
     }
@@ -188,7 +201,38 @@ public sealed class ClientOrderService : IClientOrderService
         order.Status = OrderStatus.Cancelled;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        await PublishOrderNotificationAsync(
+            order,
+            WorkspaceNotificationTypes.OrderCancelled,
+            "Order cancelled",
+            cancellationToken);
+
         return OrderDtoMapper.ToResponse(order);
+    }
+
+    private async Task PublishOrderNotificationAsync(
+        Order order,
+        string type,
+        string titlePrefix,
+        CancellationToken cancellationToken)
+    {
+        var contacts = await _clientCompanies.GetContactsAsync(
+            order.WorkspaceId,
+            [order.ClientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(order.ClientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                order.WorkspaceId,
+                type,
+                $"{titlePrefix}: {companyName}",
+                $"Delivery {order.TargetDate:yyyy-MM-dd} · {order.TotalAmount:0.##}",
+                "/orders",
+                order.Id),
+            cancellationToken);
     }
 
     private static IReadOnlyList<CreateOrderItemInput> NormalizeItems(IReadOnlyList<CreateOrderItemInput> items)
@@ -271,19 +315,25 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
     private readonly IOrderStockConsumptionService _stockConsumption;
     private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
     private readonly OrderListMapper _orderListMapper;
+    private readonly IWorkspaceNotificationPublisher _notifications;
+    private readonly IClientCompanyLookup _clientCompanies;
 
     public WorkspaceOrderService(
         AppDbContext dbContext,
         ITenantContext tenantContext,
         IOrderStockConsumptionService stockConsumption,
         IMealRequestDeliverySync mealRequestDeliverySync,
-        OrderListMapper orderListMapper)
+        OrderListMapper orderListMapper,
+        IWorkspaceNotificationPublisher notifications,
+        IClientCompanyLookup clientCompanies)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _stockConsumption = stockConsumption;
         _mealRequestDeliverySync = mealRequestDeliverySync;
         _orderListMapper = orderListMapper;
+        _notifications = notifications;
+        _clientCompanies = clientCompanies;
     }
 
     public async Task<IReadOnlyList<OrderListItemResponse>> GetAllAsync(
@@ -358,12 +408,42 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
             await _stockConsumption.ConsumeForOrderAsync(order, cancellationToken);
         }
 
+        var previousStatus = order.Status;
         order.Status = newStatus;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         if (newStatus == OrderStatus.Delivered)
         {
             await _mealRequestDeliverySync.SyncDeliveredAsync(order, cancellationToken);
+        }
+
+        if (newStatus == OrderStatus.Cancelled && previousStatus != OrderStatus.Cancelled)
+        {
+            await PublishOrderAudienceNotificationsAsync(
+                order,
+                WorkspaceNotificationTypes.OrderCancelled,
+                "Order cancelled",
+                cancellationToken,
+                includeKitchen: previousStatus is OrderStatus.Confirmed or OrderStatus.InProduction);
+        }
+        else if (newStatus == OrderStatus.InProduction && previousStatus != OrderStatus.InProduction)
+        {
+            await PublishKitchenOrderNotificationAsync(
+                order,
+                WorkspaceNotificationTypes.OrderInProduction,
+                "Order in production",
+                cancellationToken);
+        }
+        else if (newStatus == OrderStatus.ReadyForDelivery
+                 && previousStatus != OrderStatus.ReadyForDelivery
+                 && order.DriverId is Guid readyDriverId)
+        {
+            await PublishDriverOrderNotificationAsync(
+                order,
+                readyDriverId,
+                WorkspaceNotificationTypes.OrderReadyForDelivery,
+                "Ready for delivery",
+                cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -403,9 +483,115 @@ public sealed class WorkspaceOrderService : IWorkspaceOrderService
 
         order.Status = OrderStatus.ReadyForDelivery;
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (order.DriverId is Guid driverId)
+        {
+            await PublishDriverOrderNotificationAsync(
+                order,
+                driverId,
+                WorkspaceNotificationTypes.OrderReadyForDelivery,
+                "Ready for delivery",
+                cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
 
         return await _orderListMapper.MapAsync(order, cancellationToken);
+    }
+
+    private async Task PublishOrderAudienceNotificationsAsync(
+        Order order,
+        string type,
+        string titlePrefix,
+        CancellationToken cancellationToken,
+        bool includeKitchen)
+    {
+        var contacts = await _clientCompanies.GetContactsAsync(
+            order.WorkspaceId,
+            [order.ClientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(order.ClientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+        var body = $"Delivery {order.TargetDate:yyyy-MM-dd} · {order.TotalAmount:0.##}";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                order.WorkspaceId,
+                type,
+                $"{titlePrefix}: {companyName}",
+                body,
+                "/orders",
+                order.Id),
+            cancellationToken);
+
+        if (includeKitchen)
+        {
+            await _notifications.PublishAsync(
+                new WorkspaceNotificationCreateRequest(
+                    order.WorkspaceId,
+                    type,
+                    $"{titlePrefix}: {companyName}",
+                    body,
+                    "/kitchen",
+                    order.Id,
+                    Audience: WorkspaceNotificationAudiences.Kitchen),
+                cancellationToken);
+        }
+    }
+
+    private async Task PublishKitchenOrderNotificationAsync(
+        Order order,
+        string type,
+        string titlePrefix,
+        CancellationToken cancellationToken)
+    {
+        var contacts = await _clientCompanies.GetContactsAsync(
+            order.WorkspaceId,
+            [order.ClientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(order.ClientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                order.WorkspaceId,
+                type,
+                $"{titlePrefix}: {companyName}",
+                $"Delivery {order.TargetDate:yyyy-MM-dd} · {order.TotalAmount:0.##}",
+                "/kitchen",
+                order.Id,
+                Audience: WorkspaceNotificationAudiences.Kitchen),
+            cancellationToken);
+    }
+
+    private async Task PublishDriverOrderNotificationAsync(
+        Order order,
+        Guid driverUserId,
+        string type,
+        string titlePrefix,
+        CancellationToken cancellationToken)
+    {
+        var contacts = await _clientCompanies.GetContactsAsync(
+            order.WorkspaceId,
+            [order.ClientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(order.ClientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                order.WorkspaceId,
+                type,
+                $"{titlePrefix}: {companyName}",
+                $"Delivery {order.TargetDate:yyyy-MM-dd}",
+                $"/delivery/{order.Id}",
+                order.Id,
+                Audience: WorkspaceNotificationAudiences.Driver,
+                TargetUserId: driverUserId),
+            cancellationToken);
     }
 
     private static OrderStatus ParseStatus(string status)

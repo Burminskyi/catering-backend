@@ -117,6 +117,7 @@ app.MapKitchenEndpoints();
 app.MapReportingEndpoints();
 app.MapAssistantEndpoints();
 app.MapKnowledgeEndpoints();
+app.MapSharedEndpoints();
 
 try
 {

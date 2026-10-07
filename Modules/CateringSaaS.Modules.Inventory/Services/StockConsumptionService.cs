@@ -1,8 +1,10 @@
 using CateringSaaS.Modules.Inventory.Domain.Enums;
 using CateringSaaS.Modules.Inventory.Domain.Models;
 using CateringSaaS.Modules.Inventory.DTOs;
+using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using InventoryEntity = CateringSaaS.Modules.Inventory.Domain.Models.Inventory;
@@ -20,11 +22,16 @@ public sealed class StockConsumptionService : IStockConsumptionService
 {
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IWorkspaceNotificationPublisher _notifications;
 
-    public StockConsumptionService(AppDbContext dbContext, ITenantContext tenantContext)
+    public StockConsumptionService(
+        AppDbContext dbContext,
+        ITenantContext tenantContext,
+        IWorkspaceNotificationPublisher notifications)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
+        _notifications = notifications;
     }
 
     public async Task<ConsumeStockResponse> ConsumeAsync(
@@ -67,6 +74,8 @@ public sealed class StockConsumptionService : IStockConsumptionService
                 $"Insufficient stock. Available: {inventory?.TotalQuantity ?? 0} {ingredient.BaseUnit}, requested: {quantityInBase}.",
                 StatusCodes.Status409Conflict);
         }
+
+        var quantityBefore = inventory.TotalQuantity;
 
         var batches = await _dbContext.Set<StockBatch>()
             .Where(b => b.IngredientId == ingredient.Id && b.CurrentQuantity > 0)
@@ -126,6 +135,21 @@ public sealed class StockConsumptionService : IStockConsumptionService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var threshold = StockThreshold.ForUnitEnum((int)ingredient.BaseUnit);
+        if (quantityBefore >= threshold && inventory.TotalQuantity < threshold)
+        {
+            await _notifications.PublishAsync(
+                new WorkspaceNotificationCreateRequest(
+                    workspaceId,
+                    WorkspaceNotificationTypes.LowStock,
+                    $"Low stock: {ingredient.Name}",
+                    $"Remaining {inventory.TotalQuantity:0.##} {ingredient.BaseUnit} (threshold {threshold:0.##}).",
+                    "/inventory",
+                    ingredient.Id),
+                cancellationToken);
+        }
+
         await tx.CommitAsync(cancellationToken);
 
         return new ConsumeStockResponse(

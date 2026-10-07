@@ -1,7 +1,9 @@
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using CateringSaaS.Shared.SeedData;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,11 +17,16 @@ public static class SharedServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        ModuleConfigurationRegistry.Register(typeof(WorkspaceNotificationConfiguration).Assembly);
+
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, HttpTenantContext>();
         services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
         services.AddScoped<IClientTimeContext, HttpClientTimeContext>();
         services.AddScoped<IOperationalDemoSeeder, NullOperationalDemoSeeder>();
+        services.AddScoped<WorkspaceNotificationService>();
+        services.AddScoped<IWorkspaceNotificationPublisher>(sp => sp.GetRequiredService<WorkspaceNotificationService>());
+        services.AddScoped<IWorkspaceNotificationQueries>(sp => sp.GetRequiredService<WorkspaceNotificationService>());
 
         services.AddDbContext<AppDbContext>(options =>
         {
@@ -36,5 +43,11 @@ public static class SharedServiceExtensions
         });
 
         return services;
+    }
+
+    public static IEndpointRouteBuilder MapSharedEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.MapNotificationEndpoints();
+        return app;
     }
 }

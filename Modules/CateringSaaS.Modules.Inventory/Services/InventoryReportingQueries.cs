@@ -251,10 +251,5 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
     }
 
     private static decimal ThresholdFor(UnitOfMeasure unit) =>
-        unit switch
-        {
-            UnitOfMeasure.Milliliter => 10_000m,
-            UnitOfMeasure.Piece => 20m,
-            _ => 6_000m
-        };
+        CateringSaaS.Shared.Notifications.StockThreshold.ForUnitEnum((int)unit);
 }

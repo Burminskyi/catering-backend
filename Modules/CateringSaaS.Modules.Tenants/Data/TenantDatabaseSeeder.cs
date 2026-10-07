@@ -59,6 +59,7 @@ public sealed class TenantDatabaseSeeder : ITenantDataSeeder
                     Address = "14a Akademika Filatova St, Kyiv 03124",
                     ContactName = "Olena Kovalenko",
                     ContactPhone = "+380 44 585 1100",
+                    OrderCadence = ClientOrderCadence.Weekly,
                     IsActive = true
                 },
                 cancellationToken);

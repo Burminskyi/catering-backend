@@ -3,6 +3,7 @@ using CateringSaaS.Modules.Ordering.DTOs;
 using CateringSaaS.Shared.Contracts;
 using CateringSaaS.Shared.Data;
 using CateringSaaS.Shared.MultiTenancy;
+using CateringSaaS.Shared.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,6 +33,8 @@ public sealed class DeliveryService : IDeliveryService
     private readonly IMealRequestDeliverySync _mealRequestDeliverySync;
     private readonly IOrderStockConsumptionService _stockConsumption;
     private readonly OrderListMapper _orderListMapper;
+    private readonly IWorkspaceNotificationPublisher _notifications;
+    private readonly IClientCompanyLookup _clientCompanies;
 
     public DeliveryService(
         AppDbContext dbContext,
@@ -40,7 +43,9 @@ public sealed class DeliveryService : IDeliveryService
         IPushNotificationService pushNotificationService,
         IMealRequestDeliverySync mealRequestDeliverySync,
         IOrderStockConsumptionService stockConsumption,
-        OrderListMapper orderListMapper)
+        OrderListMapper orderListMapper,
+        IWorkspaceNotificationPublisher notifications,
+        IClientCompanyLookup clientCompanies)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
@@ -49,6 +54,8 @@ public sealed class DeliveryService : IDeliveryService
         _mealRequestDeliverySync = mealRequestDeliverySync;
         _stockConsumption = stockConsumption;
         _orderListMapper = orderListMapper;
+        _notifications = notifications;
+        _clientCompanies = clientCompanies;
     }
 
     public async Task<OrderListItemResponse> AssignDriverAsync(
@@ -81,6 +88,41 @@ public sealed class DeliveryService : IDeliveryService
 
         order.DriverId = request.DriverId;
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var contacts = await _clientCompanies.GetContactsAsync(
+            workspaceId,
+            [order.ClientCompanyId],
+            cancellationToken);
+        var companyName = contacts.TryGetValue(order.ClientCompanyId, out var contact)
+            ? contact.Name
+            : "Client";
+
+        await _notifications.PublishAsync(
+            new WorkspaceNotificationCreateRequest(
+                workspaceId,
+                WorkspaceNotificationTypes.DeliveryAssigned,
+                $"Delivery assigned: {companyName}",
+                $"Delivery {order.TargetDate:yyyy-MM-dd}",
+                $"/delivery/{order.Id}",
+                order.Id,
+                Audience: WorkspaceNotificationAudiences.Driver,
+                TargetUserId: request.DriverId),
+            cancellationToken);
+
+        if (order.Status == OrderStatus.ReadyForDelivery)
+        {
+            await _notifications.PublishAsync(
+                new WorkspaceNotificationCreateRequest(
+                    workspaceId,
+                    WorkspaceNotificationTypes.OrderReadyForDelivery,
+                    $"Ready for delivery: {companyName}",
+                    $"Delivery {order.TargetDate:yyyy-MM-dd}",
+                    $"/delivery/{order.Id}",
+                    order.Id,
+                    Audience: WorkspaceNotificationAudiences.Driver,
+                    TargetUserId: request.DriverId),
+                cancellationToken);
+        }
 
         return await _orderListMapper.MapAsync(order, cancellationToken);
     }
