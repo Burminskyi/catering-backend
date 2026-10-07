@@ -85,113 +85,6 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeChunk", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("ChunkIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Vector>("Embedding")
-                        .IsRequired()
-                        .HasColumnType("vector(1024)");
-
-                    b.Property<int>("TokenEstimate")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DocumentId");
-
-                    b.HasIndex("WorkspaceId", "DocumentId", "ChunkIndex")
-                        .IsUnique();
-
-                    NpgsqlIndexBuilderExtensions.HasMethod(
-                        b.HasIndex("Embedding"),
-                        "hnsw");
-                    NpgsqlIndexBuilderExtensions.HasOperators(
-                        b.HasIndex("Embedding"),
-                        new[] { "vector_cosine_ops" });
-
-                    b.ToTable("knowledge_chunks", (string)null);
-                });
-
-            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("ChunkCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("EmbeddingDimensions")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("EmbeddingModel")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("character varying(400)");
-
-                    b.Property<DateTime?>("ProcessedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<Guid?>("UploadedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkspaceId", "CreatedAtUtc");
-
-                    b.ToTable("knowledge_documents", (string)null);
-                });
-
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.Ingredient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -392,6 +285,111 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.HasIndex("WorkspaceId", "Name");
 
                     b.ToTable("suppliers", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ChunkIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Vector>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("vector(1024)");
+
+                    b.Property<int>("TokenEstimate")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("Embedding");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Embedding"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Embedding"), new[] { "vector_cosine_ops" });
+
+                    b.HasIndex("WorkspaceId", "DocumentId", "ChunkIndex")
+                        .IsUnique();
+
+                    b.ToTable("knowledge_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EmbeddingDimensions")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EmbeddingModel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "CreatedAtUtc");
+
+                    b.ToTable("knowledge_documents", (string)null);
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.Dish", b =>
@@ -840,8 +838,10 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.Property<string>("OrderCadence")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Daily");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
@@ -946,9 +946,9 @@ namespace CateringSaaS.Shared.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WorkspaceId", "Audience", "TargetUserId");
-
                     b.HasIndex("WorkspaceId", "CreatedAtUtc");
+
+                    b.HasIndex("WorkspaceId", "Audience", "TargetUserId");
 
                     b.HasIndex("WorkspaceId", "Type", "RelatedEntityId");
 
@@ -986,17 +986,6 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("Ingredient");
                 });
 
-            modelBuilder.Entity("CateringSaaS.Shared.Notifications.WorkspaceNotificationRead", b =>
-                {
-                    b.HasOne("CateringSaaS.Shared.Notifications.WorkspaceNotification", "Notification")
-                        .WithMany()
-                        .HasForeignKey("NotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Notification");
-                });
-
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.InventoryMovement", b =>
                 {
                     b.HasOne("CateringSaaS.Modules.Inventory.Domain.Models.Ingredient", "Ingredient")
@@ -1025,6 +1014,17 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("Ingredient");
 
                     b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeChunk", b =>
+                {
+                    b.HasOne("CateringSaaS.Modules.Knowledge.Domain.KnowledgeDocument", "Document")
+                        .WithMany("Chunks")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Menu.Domain.DishIngredient", b =>
@@ -1101,15 +1101,15 @@ namespace CateringSaaS.Shared.Data.Migrations
                     b.Navigation("Workspace");
                 });
 
-            modelBuilder.Entity("CateringSaaS.Modules.Knowledge.Domain.KnowledgeChunk", b =>
+            modelBuilder.Entity("CateringSaaS.Shared.Notifications.WorkspaceNotificationRead", b =>
                 {
-                    b.HasOne("CateringSaaS.Modules.Knowledge.Domain.KnowledgeDocument", "Document")
-                        .WithMany("Chunks")
-                        .HasForeignKey("DocumentId")
+                    b.HasOne("CateringSaaS.Shared.Notifications.WorkspaceNotification", "Notification")
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Document");
+                    b.Navigation("Notification");
                 });
 
             modelBuilder.Entity("CateringSaaS.Modules.Inventory.Domain.Models.Ingredient", b =>
