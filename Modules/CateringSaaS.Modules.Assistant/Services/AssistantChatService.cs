@@ -317,7 +317,7 @@ public sealed class AssistantChatService : IAssistantChatService
         var httpClient = _httpClientFactory.CreateClient(GroqOptions.HttpClientName);
         var clientOptions = new OpenAIClientOptions
         {
-            Endpoint = new Uri(_options.BaseUrl),
+            Endpoint = ResolveGroqEndpoint(_options.BaseUrl),
             Transport = new HttpClientPipelineTransport(httpClient),
             NetworkTimeout = TimeSpan.FromMinutes(2),
             // Polly on the Groq HttpClient owns 429/5xx retries.
@@ -328,6 +328,38 @@ public sealed class AssistantChatService : IAssistantChatService
             model: _options.Model,
             credential: new ApiKeyCredential(_options.ApiKey),
             options: clientOptions);
+    }
+
+    private static Uri ResolveGroqEndpoint(string? baseUrl)
+    {
+        const string fallback = "https://api.groq.com/openai/v1";
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return new Uri(fallback);
+        }
+
+        var trimmed = baseUrl.Trim().Trim('"', '\'');
+        if (trimmed.StartsWith('[') && trimmed.Contains("](", StringComparison.Ordinal))
+        {
+            var close = trimmed.IndexOf(']');
+            if (close > 1)
+            {
+                trimmed = trimmed[1..close];
+            }
+        }
+
+        if (!trimmed.Contains("://", StringComparison.Ordinal))
+        {
+            trimmed = "https://" + trimmed.TrimStart('/');
+        }
+
+        if (Uri.TryCreate(trimmed.TrimEnd('/'), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            return uri;
+        }
+
+        return new Uri(fallback);
     }
 
     private ChatCompletionOptions BuildChatOptions()
