@@ -19,10 +19,19 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         DateOnly targetDate,
         CancellationToken cancellationToken = default)
     {
+        // Project scalars in SQL (no full OrderItem graph). One business day is small.
         var orders = await _dbContext.Set<Order>()
             .AsNoTracking()
-            .Include(o => o.Items)
             .Where(o => o.WorkspaceId == workspaceId && o.TargetDate == targetDate)
+            .Select(o => new
+            {
+                o.Id,
+                o.ClientCompanyId,
+                o.DriverId,
+                o.Status,
+                o.TotalAmount,
+                Portions = o.Items.Sum(i => (int?)i.Quantity) ?? 0
+            })
             .ToListAsync(cancellationToken);
 
         var byStatus = orders
@@ -30,7 +39,7 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             .Select(g => new OrderStatusCount(
                 g.Key.ToString(),
                 g.Count(),
-                g.Sum(o => o.Items.Sum(i => i.Quantity)),
+                g.Sum(o => o.Portions),
                 g.Where(o => o.Status != OrderStatus.Cancelled).Sum(o => o.TotalAmount)))
             .OrderBy(x => x.Status)
             .ToList();
@@ -43,7 +52,7 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
                 o.ClientCompanyId,
                 o.DriverId,
                 o.Status.ToString(),
-                o.Items.Sum(i => i.Quantity),
+                o.Portions,
                 o.TotalAmount))
             .ToList();
 
@@ -53,7 +62,7 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             o.Status == OrderStatus.ReadyForDelivery && o.DriverId is not null);
 
         int Portions(OrderStatus status) =>
-            orders.Where(o => o.Status == status).Sum(o => o.Items.Sum(i => i.Quantity));
+            orders.Where(o => o.Status == status).Sum(o => o.Portions);
 
         var readyPortions = Portions(OrderStatus.ReadyForDelivery) + Portions(OrderStatus.Delivered);
         var inProductionPortions = Portions(OrderStatus.InProduction);
@@ -76,18 +85,27 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         Guid? clientCompanyId,
         CancellationToken cancellationToken = default)
     {
-        // Aggregate in memory: EF cannot translate GroupBy + SelectMany(Items).Sum.
-        var orders = await ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId)
+        // Pre-aggregate portions per order in SQL, then group — avoids SelectMany(Items) translation failure.
+        var rows = await ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId)
+            .Select(o => new
+            {
+                o.ClientCompanyId,
+                o.TotalAmount,
+                Portions = o.Items.Sum(i => (int?)i.Quantity) ?? 0
+            })
+            .GroupBy(x => x.ClientCompanyId)
+            .Select(g => new
+            {
+                ClientCompanyId = g.Key,
+                OrderCount = g.Count(),
+                Portions = g.Sum(x => x.Portions),
+                Revenue = g.Sum(x => x.TotalAmount)
+            })
+            .OrderByDescending(r => r.Revenue)
             .ToListAsync(cancellationToken);
 
-        return orders
-            .GroupBy(o => o.ClientCompanyId)
-            .Select(g => new ClientRevenueRow(
-                g.Key,
-                g.Count(),
-                g.Sum(o => o.Items.Sum(i => i.Quantity)),
-                g.Sum(o => o.TotalAmount)))
-            .OrderByDescending(r => r.Revenue)
+        return rows
+            .Select(r => new ClientRevenueRow(r.ClientCompanyId, r.OrderCount, r.Portions, r.Revenue))
             .ToList();
     }
 
@@ -98,28 +116,22 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         Guid? clientCompanyId,
         CancellationToken cancellationToken = default)
     {
-        var items = await ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId)
-            .SelectMany(o => o.Items)
-            .Select(i => new
-            {
-                i.DishName,
-                i.DishId,
-                i.Quantity,
-                i.Subtotal,
-                i.OrderId
-            })
-            .ToListAsync(cancellationToken);
-
-        return items
+        var rows = await ActiveOrderItems(workspaceId, dateFrom, dateTo, clientCompanyId)
             .GroupBy(i => new { i.DishName, i.DishId })
-            .Select(g => new DishPopularityRow(
+            .Select(g => new
+            {
                 g.Key.DishName,
                 g.Key.DishId,
-                g.Sum(i => i.Quantity),
-                g.Select(i => i.OrderId).Distinct().Count(),
-                g.Sum(i => i.Subtotal)))
+                Portions = g.Sum(i => i.Quantity),
+                OrderCount = g.Select(i => i.OrderId).Distinct().Count(),
+                Revenue = g.Sum(i => i.Subtotal)
+            })
             .OrderByDescending(r => r.Portions)
             .ThenBy(r => r.DishName)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new DishPopularityRow(r.DishName, r.DishId, r.Portions, r.OrderCount, r.Revenue))
             .ToList();
     }
 
@@ -132,7 +144,6 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
     {
         var ordersQuery = _dbContext.Set<Order>()
             .AsNoTracking()
-            .Include(o => o.Items)
             .Where(o =>
                 o.WorkspaceId == workspaceId
                 && o.TargetDate >= dateFrom
@@ -144,8 +155,23 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             ordersQuery = ordersQuery.Where(o => o.ClientCompanyId == clientId);
         }
 
+        // Project item fields only — matching reviews + dish labels still need in-memory shaping.
         var orders = await ordersQuery
             .OrderByDescending(o => o.TargetDate)
+            .Select(o => new
+            {
+                o.Id,
+                o.ClientCompanyId,
+                o.DriverId,
+                o.TargetDate,
+                o.TotalAmount,
+                Items = o.Items.Select(i => new
+                {
+                    i.MenuItemId,
+                    i.DishName,
+                    i.Quantity
+                }).ToList()
+            })
             .ToListAsync(cancellationToken);
 
         var reviewsQuery = _dbContext.Set<MealReview>()
@@ -160,7 +186,19 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             reviewsQuery = reviewsQuery.Where(r => r.ClientCompanyId == reviewClientId);
         }
 
-        var reviews = await reviewsQuery.ToListAsync(cancellationToken);
+        var reviews = await reviewsQuery
+            .Select(r => new
+            {
+                r.Id,
+                r.ClientCompanyId,
+                r.TargetDate,
+                r.MenuItemId,
+                r.Rating,
+                r.IsReclamation,
+                r.Comment
+            })
+            .ToListAsync(cancellationToken);
+
         var reviewsByKey = reviews
             .GroupBy(r => (r.ClientCompanyId, r.TargetDate))
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -221,34 +259,47 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             reviewsQuery = reviewsQuery.Where(r => r.ClientCompanyId == clientId);
         }
 
-        var reviews = await reviewsQuery.ToListAsync(cancellationToken);
-        if (reviews.Count == 0)
+        var heat = await reviewsQuery
+            .GroupBy(r => new { r.ClientCompanyId, r.MenuItemId })
+            .Select(g => new
+            {
+                g.Key.ClientCompanyId,
+                g.Key.MenuItemId,
+                ReviewCount = g.Count(),
+                AvgRating = g.Average(r => (decimal)r.Rating),
+                MinRating = g.Min(r => r.Rating)
+            })
+            .ToListAsync(cancellationToken);
+
+        if (heat.Count == 0)
         {
             return [];
         }
 
-        var menuItemIds = reviews.Select(r => r.MenuItemId).Distinct().ToArray();
+        var menuItemIds = heat.Select(r => r.MenuItemId).Distinct().ToArray();
         var dishNames = await _dbContext.Set<OrderItem>()
             .AsNoTracking()
             .Where(i => i.WorkspaceId == workspaceId && menuItemIds.Contains(i.MenuItemId))
-            .Select(i => new { i.MenuItemId, i.DishName })
+            .GroupBy(i => i.MenuItemId)
+            .Select(g => new
+            {
+                MenuItemId = g.Key,
+                DishName = g.Max(i => i.DishName)
+            })
             .ToListAsync(cancellationToken);
 
-        var nameByItem = dishNames
-            .GroupBy(i => i.MenuItemId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(x => x.DishName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? "Unknown");
+        var nameByItem = dishNames.ToDictionary(
+            x => x.MenuItemId,
+            x => string.IsNullOrWhiteSpace(x.DishName) ? "Unknown" : x.DishName);
 
-        return reviews
-            .GroupBy(r => (r.ClientCompanyId, r.MenuItemId))
-            .Select(g => new ReclamationHeatRow(
-                g.Key.ClientCompanyId,
-                g.Key.MenuItemId,
-                nameByItem.GetValueOrDefault(g.Key.MenuItemId, "Unknown"),
-                g.Count(),
-                Math.Round((decimal)g.Average(r => r.Rating), 1),
-                g.Min(r => r.Rating)))
+        return heat
+            .Select(r => new ReclamationHeatRow(
+                r.ClientCompanyId,
+                r.MenuItemId,
+                nameByItem.GetValueOrDefault(r.MenuItemId, "Unknown"),
+                r.ReviewCount,
+                Math.Round(r.AvgRating, 1),
+                r.MinRating))
             .OrderBy(r => r.MinRating)
             .ThenByDescending(r => r.ReviewCount)
             .ThenBy(r => r.DishName)
@@ -262,12 +313,26 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         Guid? clientCompanyId,
         CancellationToken cancellationToken = default)
     {
-        var items = await ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId)
-            .SelectMany(o => o.Items)
-            .Select(i => new { i.MenuItemId, i.DishId, i.DishName, i.Quantity })
+        var rows = await ActiveOrderItems(workspaceId, dateFrom, dateTo, clientCompanyId)
+            .GroupBy(i => i.MenuItemId)
+            .Select(g => new
+            {
+                MenuItemId = g.Key,
+                DishId = g.Max(i => i.DishId),
+                DishName = g.Max(i => i.DishName),
+                Portions = g.Sum(i => i.Quantity)
+            })
+            .OrderByDescending(r => r.Portions)
+            .ThenBy(r => r.DishName)
             .ToListAsync(cancellationToken);
 
-        return GroupDemand(items.Select(i => (i.MenuItemId, i.DishId, i.DishName, i.Quantity)));
+        return rows
+            .Select(r => new ProductionDemandLine(
+                r.MenuItemId,
+                r.DishId,
+                string.IsNullOrWhiteSpace(r.DishName) ? "Unknown" : r.DishName,
+                r.Portions))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<ProductionDemandLine>> GetConfirmedDemandAsync(
@@ -275,16 +340,31 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         DateOnly targetDate,
         CancellationToken cancellationToken = default)
     {
-        var items = await _dbContext.Set<OrderItem>()
+        var rows = await _dbContext.Set<OrderItem>()
             .AsNoTracking()
             .Where(i =>
                 i.WorkspaceId == workspaceId
                 && i.Order.TargetDate == targetDate
                 && i.Order.Status == OrderStatus.Confirmed)
-            .Select(i => new { i.MenuItemId, i.DishId, i.DishName, i.Quantity })
+            .GroupBy(i => i.MenuItemId)
+            .Select(g => new
+            {
+                MenuItemId = g.Key,
+                DishId = g.Max(i => i.DishId),
+                DishName = g.Max(i => i.DishName),
+                Portions = g.Sum(i => i.Quantity)
+            })
+            .OrderByDescending(r => r.Portions)
+            .ThenBy(r => r.DishName)
             .ToListAsync(cancellationToken);
 
-        return GroupDemand(items.Select(i => (i.MenuItemId, i.DishId, i.DishName, i.Quantity)));
+        return rows
+            .Select(r => new ProductionDemandLine(
+                r.MenuItemId,
+                r.DishId,
+                string.IsNullOrWhiteSpace(r.DishName) ? "Unknown" : r.DishName,
+                r.Portions))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<DriverEfficiencyRow>> GetDriverEfficiencyAsync(
@@ -296,7 +376,6 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
     {
         var query = _dbContext.Set<Order>()
             .AsNoTracking()
-            .Include(o => o.Items)
             .Where(o =>
                 o.WorkspaceId == workspaceId
                 && o.TargetDate >= dateFrom
@@ -308,18 +387,34 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             query = query.Where(o => o.DriverId == id);
         }
 
-        var orders = await query.ToListAsync(cancellationToken);
-
-        return orders
-            .GroupBy(o => o.DriverId)
-            .Select(g => new DriverEfficiencyRow(
-                g.Key,
-                g.Count(),
-                g.Sum(o => o.Items.Sum(i => i.Quantity)),
-                g.Select(o => o.ClientCompanyId).Distinct().Count(),
-                g.Sum(o => o.TotalAmount)))
+        var rows = await query
+            .Select(o => new
+            {
+                o.DriverId,
+                o.ClientCompanyId,
+                o.TotalAmount,
+                Portions = o.Items.Sum(i => (int?)i.Quantity) ?? 0
+            })
+            .GroupBy(x => x.DriverId)
+            .Select(g => new
+            {
+                DriverId = g.Key,
+                OrderCount = g.Count(),
+                Portions = g.Sum(x => x.Portions),
+                UniqueClients = g.Select(x => x.ClientCompanyId).Distinct().Count(),
+                Revenue = g.Sum(x => x.TotalAmount)
+            })
             .OrderByDescending(r => r.OrderCount)
             .ThenByDescending(r => r.Portions)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new DriverEfficiencyRow(
+                r.DriverId,
+                r.OrderCount,
+                r.Portions,
+                r.UniqueClients,
+                r.Revenue))
             .ToList();
     }
 
@@ -332,7 +427,6 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
     {
         var query = _dbContext.Set<Order>()
             .AsNoTracking()
-            .Include(o => o.Items)
             .Where(o =>
                 o.WorkspaceId == workspaceId
                 && o.TargetDate >= dateFrom
@@ -344,34 +438,37 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
             query = query.Where(o => o.ClientCompanyId == clientId);
         }
 
-        var orders = await query.ToListAsync(cancellationToken);
-
-        return orders
-            .GroupBy(o => new { o.ClientCompanyId, o.TargetDate })
-            .Select(g => new CancellationRow(
+        var rows = await query
+            .Select(o => new
+            {
+                o.ClientCompanyId,
+                o.TargetDate,
+                o.TotalAmount,
+                Portions = o.Items.Sum(i => (int?)i.Quantity) ?? 0
+            })
+            .GroupBy(x => new { x.ClientCompanyId, x.TargetDate })
+            .Select(g => new
+            {
                 g.Key.ClientCompanyId,
                 g.Key.TargetDate,
-                "Cancelled",
-                g.Count(),
-                g.Sum(o => o.Items.Sum(i => i.Quantity)),
-                g.Sum(o => o.TotalAmount)))
+                OrderCount = g.Count(),
+                Portions = g.Sum(x => x.Portions),
+                LostRevenue = g.Sum(x => x.TotalAmount)
+            })
             .OrderByDescending(r => r.TargetDate)
             .ThenByDescending(r => r.LostRevenue)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new CancellationRow(
+                r.ClientCompanyId,
+                r.TargetDate,
+                "Cancelled",
+                r.OrderCount,
+                r.Portions,
+                r.LostRevenue))
             .ToList();
     }
-
-    private static IReadOnlyList<ProductionDemandLine> GroupDemand(
-        IEnumerable<(Guid MenuItemId, Guid? DishId, string DishName, int Quantity)> items) =>
-        items
-            .GroupBy(i => i.MenuItemId)
-            .Select(g => new ProductionDemandLine(
-                g.Key,
-                g.Select(i => i.DishId).FirstOrDefault(id => id is not null),
-                g.Select(i => i.DishName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? "Unknown",
-                g.Sum(i => i.Quantity)))
-            .OrderByDescending(r => r.Portions)
-            .ThenBy(r => r.DishName)
-            .ToList();
 
     private IQueryable<Order> ActiveOrders(
         Guid workspaceId,
@@ -381,7 +478,6 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
     {
         var query = _dbContext.Set<Order>()
             .AsNoTracking()
-            .Include(o => o.Items)
             .Where(o =>
                 o.WorkspaceId == workspaceId
                 && o.TargetDate >= dateFrom
@@ -391,6 +487,28 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         if (clientCompanyId is Guid clientId)
         {
             query = query.Where(o => o.ClientCompanyId == clientId);
+        }
+
+        return query;
+    }
+
+    private IQueryable<OrderItem> ActiveOrderItems(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        Guid? clientCompanyId)
+    {
+        var query = _dbContext.Set<OrderItem>()
+            .AsNoTracking()
+            .Where(i =>
+                i.WorkspaceId == workspaceId
+                && i.Order.TargetDate >= dateFrom
+                && i.Order.TargetDate <= dateTo
+                && i.Order.Status != OrderStatus.Cancelled);
+
+        if (clientCompanyId is Guid clientId)
+        {
+            query = query.Where(i => i.Order.ClientCompanyId == clientId);
         }
 
         return query;

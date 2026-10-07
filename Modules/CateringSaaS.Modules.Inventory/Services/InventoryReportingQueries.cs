@@ -23,9 +23,18 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         Guid workspaceId,
         CancellationToken cancellationToken = default)
     {
+        // Threshold filter in SQL (matches StockThreshold.ForUnitEnum).
         var rows = await _dbContext.Set<InventoryEntity>()
             .AsNoTracking()
             .Where(i => i.WorkspaceId == workspaceId)
+            .Where(i =>
+                i.TotalQuantity < (
+                    i.Ingredient.BaseUnit == UnitOfMeasure.Milliliter ? 10_000m
+                    : i.Ingredient.BaseUnit == UnitOfMeasure.Piece ? 20m
+                    : 6_000m))
+            .OrderBy(i => i.TotalQuantity)
+            .ThenBy(i => i.Ingredient.Name)
+            .Take(20)
             .Select(i => new
             {
                 i.IngredientId,
@@ -37,21 +46,13 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             .ToListAsync(cancellationToken);
 
         return rows
-            .Select(row =>
-            {
-                var threshold = ThresholdFor(row.Unit);
-                return new CriticalStockRow(
-                    row.IngredientId,
-                    row.Name,
-                    row.Category.ToString(),
-                    row.Unit.ToString(),
-                    row.TotalQuantity,
-                    threshold);
-            })
-            .Where(row => row.Quantity < row.Threshold)
-            .OrderBy(row => row.Quantity)
-            .ThenBy(row => row.Name)
-            .Take(20)
+            .Select(row => new CriticalStockRow(
+                row.IngredientId,
+                row.Name,
+                row.Category.ToString(),
+                row.Unit.ToString(),
+                row.TotalQuantity,
+                ThresholdFor(row.Unit)))
             .ToList();
     }
 
@@ -78,6 +79,7 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             query = query.Where(m => m.IngredientId == id);
         }
 
+        // One slim projection: daily buckets need client TZ, so avoid triple table scans.
         var movements = await query
             .Select(m => new
             {
@@ -109,8 +111,8 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
 
         var categorySpend = movements
             .Where(m => m.Type == InventoryMovementType.Purchase)
-            .GroupBy(m => m.Category.ToString())
-            .Select(g => new StockCategorySpendRow(g.Key, g.Sum(m => m.TotalCost)))
+            .GroupBy(m => m.Category)
+            .Select(g => new StockCategorySpendRow(g.Key.ToString(), g.Sum(m => m.TotalCost)))
             .OrderByDescending(r => r.PurchaseCost)
             .ToList();
 
@@ -158,6 +160,8 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
                 ConsumeQuantity = g.Sum(m => m.Quantity),
                 ConsumeCost = g.Sum(m => m.TotalCost)
             })
+            .OrderByDescending(g => g.ConsumeQuantity)
+            .ThenBy(g => g.Name)
             .ToListAsync(cancellationToken);
 
         return groups
@@ -167,8 +171,6 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
                 g.Unit.ToString(),
                 g.ConsumeQuantity,
                 g.ConsumeCost))
-            .OrderByDescending(r => r.ConsumeQuantity)
-            .ThenBy(r => r.Name)
             .ToList();
     }
 
@@ -187,7 +189,7 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             query = query.Where(i => ids.Contains(i.IngredientId));
         }
 
-        // Enum.ToString() / record ctor in OrderBy is not EF-translatable — project then map.
+        // Enum.ToString() is not EF-translatable — project then map.
         var rows = await query
             .Select(i => new
             {
