@@ -76,17 +76,19 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         Guid? clientCompanyId,
         CancellationToken cancellationToken = default)
     {
-        var query = ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId);
+        // Aggregate in memory: EF cannot translate GroupBy + SelectMany(Items).Sum.
+        var orders = await ActiveOrders(workspaceId, dateFrom, dateTo, clientCompanyId)
+            .ToListAsync(cancellationToken);
 
-        return await query
+        return orders
             .GroupBy(o => o.ClientCompanyId)
             .Select(g => new ClientRevenueRow(
                 g.Key,
                 g.Count(),
-                g.SelectMany(o => o.Items).Sum(i => i.Quantity),
+                g.Sum(o => o.Items.Sum(i => i.Quantity)),
                 g.Sum(o => o.TotalAmount)))
             .OrderByDescending(r => r.Revenue)
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     public async Task<IReadOnlyList<DishPopularityRow>> GetDishPopularityAsync(

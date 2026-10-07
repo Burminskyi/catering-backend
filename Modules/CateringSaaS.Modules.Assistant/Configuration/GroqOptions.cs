@@ -8,8 +8,8 @@ public sealed class GroqOptions
 
     public string ApiKey { get; set; } = string.Empty;
 
-    // Use an id from GET /openai/v1/models for this key — Llama ids are often unavailable.
-    public string Model { get; set; } = "openai/gpt-oss-120b";
+    // Prefer 20b on free tier (higher TPM headroom than 120b). Must be in GET /openai/v1/models.
+    public string Model { get; set; } = "openai/gpt-oss-20b";
 
     public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
 }
