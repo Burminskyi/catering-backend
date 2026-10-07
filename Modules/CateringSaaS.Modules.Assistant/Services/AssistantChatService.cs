@@ -324,9 +324,13 @@ public sealed class AssistantChatService : IAssistantChatService
             RetryPolicy = new ClientRetryPolicy(maxRetries: 0)
         };
 
+        var model = string.IsNullOrWhiteSpace(_options.Model)
+            ? "llama-3.1-8b-instant"
+            : _options.Model.Trim();
+
         return new ChatClient(
-            model: _options.Model,
-            credential: new ApiKeyCredential(_options.ApiKey),
+            model: model,
+            credential: new ApiKeyCredential(_options.ApiKey.Trim()),
             options: clientOptions);
     }
 
