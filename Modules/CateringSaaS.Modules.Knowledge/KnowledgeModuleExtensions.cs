@@ -9,11 +9,15 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CateringSaaS.Modules.Knowledge;
 
 public static class KnowledgeModuleExtensions
 {
+    private const string DefaultHuggingFaceBaseUrl = "https://router.huggingface.co/";
+
     public static IServiceCollection AddKnowledgeModule(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -24,12 +28,9 @@ public static class KnowledgeModuleExtensions
 
         services.AddHttpClient<IEmbeddingService, HuggingFaceEmbeddingService>((sp, client) =>
         {
-            var options = configuration.GetSection(HuggingFaceOptions.SectionName).Get<HuggingFaceOptions>()
-                          ?? new HuggingFaceOptions();
-            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
-                ? "https://router.huggingface.co"
-                : options.BaseUrl.TrimEnd('/');
-            client.BaseAddress = new Uri(baseUrl + "/");
+            var options = sp.GetRequiredService<IOptions<HuggingFaceOptions>>().Value;
+            var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("CateringSaaS.Knowledge.Http");
+            client.BaseAddress = ResolveHuggingFaceBaseAddress(options.BaseUrl, logger);
             client.Timeout = TimeSpan.FromMinutes(3);
         })
         .AddPolicyHandler(TransientHttpRetryPolicy.Create());
@@ -41,6 +42,54 @@ public static class KnowledgeModuleExtensions
         services.AddScoped<IKnowledgeSearchQueries>(sp => sp.GetRequiredService<KnowledgeBaseService>());
 
         return services;
+    }
+
+    /// <summary>
+    /// Render/env typos (missing scheme, quotes) used to throw UriFormatException and break
+    /// every assistant request because SearchKnowledgeBaseTool resolves IEmbeddingService.
+    /// </summary>
+    internal static Uri ResolveHuggingFaceBaseAddress(string? baseUrl, ILogger? logger = null)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return new Uri(DefaultHuggingFaceBaseUrl);
+        }
+
+        var trimmed = baseUrl.Trim().Trim('"', '\'');
+
+        // Paste from markdown: [https://host](https://host) or <https://host>
+        if (trimmed.StartsWith('[') && trimmed.Contains("](", StringComparison.Ordinal))
+        {
+            var close = trimmed.IndexOf(']');
+            if (close > 1)
+            {
+                trimmed = trimmed[1..close];
+            }
+        }
+        else if (trimmed.StartsWith('<') && trimmed.EndsWith('>'))
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        if (!trimmed.Contains("://", StringComparison.Ordinal))
+        {
+            trimmed = "https://" + trimmed.TrimStart('/');
+        }
+
+        trimmed = trimmed.TrimEnd('/') + "/";
+
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            return uri;
+        }
+
+        logger?.LogWarning(
+            "Invalid HuggingFace:BaseUrl '{BaseUrl}'. Falling back to {Fallback}.",
+            baseUrl,
+            DefaultHuggingFaceBaseUrl);
+
+        return new Uri(DefaultHuggingFaceBaseUrl);
     }
 
     public static IEndpointRouteBuilder MapKnowledgeEndpoints(this IEndpointRouteBuilder app)
