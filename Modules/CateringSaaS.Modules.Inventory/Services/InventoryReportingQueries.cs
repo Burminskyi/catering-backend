@@ -148,17 +148,28 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             query = query.Where(m => m.IngredientId == id);
         }
 
-        return await query
+        var groups = await query
             .GroupBy(m => new { m.IngredientId, m.Ingredient.Name, Unit = m.Ingredient.BaseUnit })
-            .Select(g => new IngredientConsumptionRow(
+            .Select(g => new
+            {
                 g.Key.IngredientId,
                 g.Key.Name,
-                g.Key.Unit.ToString(),
-                g.Sum(m => m.Quantity),
-                g.Sum(m => m.TotalCost)))
+                g.Key.Unit,
+                ConsumeQuantity = g.Sum(m => m.Quantity),
+                ConsumeCost = g.Sum(m => m.TotalCost)
+            })
+            .ToListAsync(cancellationToken);
+
+        return groups
+            .Select(g => new IngredientConsumptionRow(
+                g.IngredientId,
+                g.Name,
+                g.Unit.ToString(),
+                g.ConsumeQuantity,
+                g.ConsumeCost))
             .OrderByDescending(r => r.ConsumeQuantity)
             .ThenBy(r => r.Name)
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     public async Task<IReadOnlyList<IngredientBalanceRow>> GetIngredientBalancesAsync(
@@ -176,15 +187,27 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
             query = query.Where(i => ids.Contains(i.IngredientId));
         }
 
-        return await query
-            .Select(i => new IngredientBalanceRow(
+        // Enum.ToString() / record ctor in OrderBy is not EF-translatable — project then map.
+        var rows = await query
+            .Select(i => new
+            {
                 i.IngredientId,
-                i.Ingredient.Name,
-                i.Ingredient.BaseUnit.ToString(),
-                i.Ingredient.Category.ToString(),
-                i.TotalQuantity))
+                Name = i.Ingredient.Name,
+                Unit = i.Ingredient.BaseUnit,
+                Category = i.Ingredient.Category,
+                i.TotalQuantity
+            })
             .OrderBy(r => r.Name)
             .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new IngredientBalanceRow(
+                r.IngredientId,
+                r.Name,
+                r.Unit.ToString(),
+                r.Category.ToString(),
+                r.TotalQuantity))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<SupplierSpendRow>> GetSupplierSpendAsync(
