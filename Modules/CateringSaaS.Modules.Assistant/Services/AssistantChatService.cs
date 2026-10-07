@@ -42,7 +42,12 @@ public sealed class AssistantChatService : IAssistantChatService
         dateFrom and dateTo are local calendar dates.
         For stock, food-cost, consumption, and supplier tools, a clock window such as 12:00-15:00 must be passed as timeFrom and timeTo (HH:mm, 24-hour, client local).
         Order, delivery, revenue, and pulse tools store a business date (TargetDate) only. For those, use the local calendar day and do not invent hourly totals.
-        Always reply in the same language as the user's latest message (Ukrainian, English, Polish, or Russian).
+        Language rules (mandatory):
+        - Reply entirely in the language of the user's latest message (Ukrainian, Russian, Polish, or English).
+        - A following system message states the detected reply language — obey it even if the UI locale differs.
+        - Write dates, month names, and relative phrases in that same reply language. Do not mix languages in one answer.
+        - Do not translate database field values (client names, dish names, ingredient names, supplier names, status codes as stored). Quote them as returned by tools.
+        - Chart/table chrome (titles, column headers, legends) is localized by the server from the reply language; do not invent English labels in chat when the user wrote in another language.
         Tool names and parameter names stay in English. Do not invent data — call tools.
         Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
         Prefer concise answers and highlight key metrics from tool results.
@@ -80,6 +85,9 @@ public sealed class AssistantChatService : IAssistantChatService
         AssistantScope scope,
         CancellationToken cancellationToken = default)
     {
+        var replyLanguage = AssistantLanguage.Detect(request.Message);
+        using var _ = new CultureScope(replyLanguage);
+
         var (key, conversationId, stored) = PrepareConversation(request, scope);
         var client = CreateChatClient();
         var chatOptions = BuildChatOptions();
@@ -88,7 +96,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
         for (var turn = 0; turn < MaxToolTurns; turn++)
         {
-            var window = BuildModelWindow(stored);
+            var window = BuildModelWindow(stored, replyLanguage);
             ChatCompletion completion = await CompleteChatAsync(client, window, chatOptions, cancellationToken);
             stored.Add(new AssistantChatMessage(completion));
 
@@ -116,7 +124,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
         if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
         {
-            finalText = "Here are the results.";
+            finalText = FallbackResultsText(replyLanguage);
         }
 
         _conversations.Save(key, stored);
@@ -129,6 +137,9 @@ public sealed class AssistantChatService : IAssistantChatService
         AssistantScope scope,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var replyLanguage = AssistantLanguage.Detect(request.Message);
+        using var _ = new CultureScope(replyLanguage);
+
         var (key, conversationId, stored) = PrepareConversation(request, scope);
         var client = CreateChatClient();
         var chatOptions = BuildChatOptions();
@@ -137,7 +148,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
         for (var turn = 0; turn < MaxToolTurns; turn++)
         {
-            var window = BuildModelWindow(stored);
+            var window = BuildModelWindow(stored, replyLanguage);
             var content = new StringBuilder();
             var toolCalls = new StreamingToolCallAccumulator();
             var sawToolCalls = false;
@@ -208,7 +219,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
         if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
         {
-            finalText = "Here are the results.";
+            finalText = FallbackResultsText(replyLanguage);
         }
 
         _conversations.Save(key, stored);
@@ -280,7 +291,7 @@ public sealed class AssistantChatService : IAssistantChatService
             AssistantServiceException.UnreachableCode);
     }
 
-    private List<ChatMessage> BuildModelWindow(IReadOnlyList<ChatMessage> stored)
+    private List<ChatMessage> BuildModelWindow(IReadOnlyList<ChatMessage> stored, string replyLanguage)
     {
         var conversational = stored.Where(message => message is not SystemChatMessage).ToList();
         if (conversational.Count > MaxHistoryMessages)
@@ -294,10 +305,11 @@ public sealed class AssistantChatService : IAssistantChatService
             conversational = conversational[start..];
         }
 
-        var window = new List<ChatMessage>(conversational.Count + 2)
+        var window = new List<ChatMessage>(conversational.Count + 3)
         {
             new SystemChatMessage(StaticSystemPrompt),
-            new SystemChatMessage(BuildClockPrompt())
+            new SystemChatMessage(BuildClockPrompt()),
+            new SystemChatMessage(BuildLanguagePrompt(replyLanguage))
         };
         window.AddRange(conversational);
         return window;
@@ -314,6 +326,26 @@ public sealed class AssistantChatService : IAssistantChatService
             Local calendar date for today, yesterday, and week boundaries: {local:yyyy-MM-dd}.
             """;
     }
+
+    private static string BuildLanguagePrompt(string replyLanguage)
+    {
+        var name = AssistantLanguage.DisplayName(replyLanguage);
+        return
+            $"""
+            Detected reply language: {name} (code={replyLanguage}).
+            Write the entire assistant message in {name} only.
+            Format human-readable dates and month names in {name}.
+            Keep tool/database entity names (clients, dishes, ingredients, suppliers) exactly as provided by tools.
+            """;
+    }
+
+    private static string FallbackResultsText(string replyLanguage) => replyLanguage switch
+    {
+        "uk" => "Ось результати.",
+        "pl" => "Oto wyniki.",
+        "ru" => "Вот результаты.",
+        _ => "Here are the results."
+    };
 
     private ChatClient CreateChatClient()
     {

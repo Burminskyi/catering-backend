@@ -141,25 +141,25 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("ordersCount", "Orders today", active.Count, active.Count.ToString(),
-                $"{pending} pending confirmation", pending.ToString()),
-            ReportComposer.Metric("revenue", "Revenue today", revenue, ReportComposer.Money(revenue),
-                $"{active.Count} active orders"),
-            ReportComposer.Metric("portions", "Portions today", portions, portions.ToString(),
-                $"{snapshot.ReadyPortions} ready"),
-            ReportComposer.Metric("assignedReadyCount", "Assigned for delivery", snapshot.AssignedReadyCount,
+            ReportComposer.Metric("ordersCount", ReportLabels.OrdersToday, active.Count, active.Count.ToString(),
+                ReportLabels.PendingConfirmation(pending), pending.ToString()),
+            ReportComposer.Metric("revenue", ReportLabels.RevenueToday, revenue, ReportComposer.Money(revenue),
+                ReportLabels.ActiveOrders(active.Count)),
+            ReportComposer.Metric("portions", ReportLabels.PortionsToday, portions, portions.ToString(),
+                ReportLabels.ReadyCount(snapshot.ReadyPortions)),
+            ReportComposer.Metric("assignedReadyCount", ReportLabels.AssignedForDelivery, snapshot.AssignedReadyCount,
                 snapshot.AssignedReadyCount.ToString()),
-            ReportComposer.Metric("unassignedReadyCount", "Unassigned ready orders", snapshot.UnassignedReadyCount,
+            ReportComposer.Metric("unassignedReadyCount", ReportLabels.UnassignedReadyOrders, snapshot.UnassignedReadyCount,
                 snapshot.UnassignedReadyCount.ToString()),
-            ReportComposer.Metric("criticalStockCount", "Critical stock items", critical.Count,
+            ReportComposer.Metric("criticalStockCount", ReportLabels.CriticalStockItems, critical.Count,
                 critical.Count.ToString()),
-            ReportComposer.Metric("readyPortions", "Ready portions", snapshot.ReadyPortions,
+            ReportComposer.Metric("readyPortions", ReportLabels.ReadyPortions, snapshot.ReadyPortions,
                 snapshot.ReadyPortions.ToString()),
-            ReportComposer.Metric("inProductionPortions", "In production portions", snapshot.InProductionPortions,
+            ReportComposer.Metric("inProductionPortions", ReportLabels.InProductionPortions, snapshot.InProductionPortions,
                 snapshot.InProductionPortions.ToString()),
-            ReportComposer.Metric("waitingPortions", "Waiting portions", snapshot.WaitingPortions,
+            ReportComposer.Metric("waitingPortions", ReportLabels.WaitingPortions, snapshot.WaitingPortions,
                 snapshot.WaitingPortions.ToString()),
-            ReportComposer.Metric("readinessPercent", "Kitchen readiness", readiness,
+            ReportComposer.Metric("readinessPercent", ReportLabels.KitchenReadiness, readiness,
                 ReportComposer.Percent(readiness))
         };
 
@@ -170,7 +170,7 @@ public sealed class ReportingService : IReportingService
                 status.Status,
                 status.OrderCount,
                 status.OrderCount.ToString(),
-                $"{status.Portions} portions"));
+                ReportLabels.NPortions(status.Portions)));
         }
 
         var orderRows = snapshot.Orders.Select(o =>
@@ -208,22 +208,22 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "todayOrders",
-                "Today's orders",
+                ReportLabels.TodaysOrders,
                 [
-                    new ReportColumn("clientName", "Client"),
-                    new ReportColumn("portions", "Portions", "number"),
-                    new ReportColumn("status", "Status", "status"),
-                    new ReportColumn("driverName", "Driver")
+                    new ReportColumn("clientName", ReportLabels.Client),
+                    new ReportColumn("portions", ReportLabels.Portions, "number"),
+                    new ReportColumn("status", ReportLabels.Status, "status"),
+                    new ReportColumn("driverName", ReportLabels.Driver)
                 ],
                 orderRows),
             new(
                 "criticalStock",
-                "Critical stock",
+                ReportLabels.CriticalStock,
                 [
-                    new ReportColumn("name", "Ingredient"),
-                    new ReportColumn("quantity", "On hand", "number"),
-                    new ReportColumn("unit", "Unit"),
-                    new ReportColumn("threshold", "Min", "number")
+                    new ReportColumn("name", ReportLabels.Ingredient),
+                    new ReportColumn("quantity", ReportLabels.OnHand, "number"),
+                    new ReportColumn("unit", ReportLabels.Unit),
+                    new ReportColumn("threshold", ReportLabels.Min, "number")
                 ],
                 stockRows)
         };
@@ -232,7 +232,7 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "ordersByStatus",
-                "Orders by status",
+                ReportLabels.OrdersByStatus,
                 "bar",
                 snapshot.ByStatus.Select(s => new ReportSeriesPoint(s.Status, s.OrderCount)).ToList())
         };
@@ -259,10 +259,10 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("revenue", "Revenue", revenue, ReportComposer.Money(revenue)),
-            ReportComposer.Metric("portions", "Portions", portions, portions.ToString()),
-            ReportComposer.Metric("orderCount", "Orders", orders, orders.ToString()),
-            ReportComposer.Metric("clientCount", "Clients", rows.Count, rows.Count.ToString())
+            ReportComposer.Metric("revenue", ReportLabels.Revenue, revenue, ReportComposer.Money(revenue)),
+            ReportComposer.Metric("portions", ReportLabels.Portions, portions, portions.ToString()),
+            ReportComposer.Metric("orderCount", ReportLabels.Orders, orders, orders.ToString()),
+            ReportComposer.Metric("clientCount", ReportLabels.Clients, rows.Count, rows.Count.ToString())
         };
 
         var tableRows = rows.Select(r =>
@@ -280,12 +280,12 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "revenueByClient",
-                "Revenue by client",
+                ReportLabels.RevenueByClient,
                 [
-                    new ReportColumn("clientName", "Client"),
-                    new ReportColumn("orderCount", "Orders", "number"),
-                    new ReportColumn("portions", "Portions", "number"),
-                    new ReportColumn("revenue", "Revenue", "money")
+                    new ReportColumn("clientName", ReportLabels.Client),
+                    new ReportColumn("orderCount", ReportLabels.Orders, "number"),
+                    new ReportColumn("portions", ReportLabels.Portions, "number"),
+                    new ReportColumn("revenue", ReportLabels.Revenue, "money")
                 ],
                 tableRows)
         };
@@ -294,12 +294,12 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "revenueByClient",
-                "Revenue by client",
+                ReportLabels.RevenueByClient,
                 "bar",
                 rows.Take(12).Select(r =>
                 {
                     contacts.TryGetValue(r.ClientCompanyId, out var client);
-                    return new ReportSeriesPoint(client?.Name ?? "Client", r.Revenue);
+                    return new ReportSeriesPoint(client?.Name ?? ReportLabels.Client, r.Revenue);
                 }).ToList())
         };
 
@@ -325,14 +325,14 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("purchaseCost", "Purchased", snapshot.PurchaseCost,
+            ReportComposer.Metric("purchaseCost", ReportLabels.Purchased, snapshot.PurchaseCost,
                 ReportComposer.Money(snapshot.PurchaseCost),
                 $"{ReportComposer.Quantity(snapshot.PurchaseQuantity)} units"),
-            ReportComposer.Metric("consumeCost", "Used", snapshot.ConsumeCost,
+            ReportComposer.Metric("consumeCost", ReportLabels.Used, snapshot.ConsumeCost,
                 ReportComposer.Money(snapshot.ConsumeCost),
                 $"{ReportComposer.Quantity(snapshot.ConsumeQuantity)} units"),
-            ReportComposer.Metric("usedShare", "Used share", usedShare, ReportComposer.Percent(usedShare)),
-            ReportComposer.Metric("adjustmentCost", "Adjustments", snapshot.AdjustmentCost,
+            ReportComposer.Metric("usedShare", ReportLabels.UsedShare, usedShare, ReportComposer.Percent(usedShare)),
+            ReportComposer.Metric("adjustmentCost", ReportLabels.Adjustments, snapshot.AdjustmentCost,
                 ReportComposer.Money(snapshot.AdjustmentCost),
                 $"{ReportComposer.Quantity(snapshot.AdjustmentQuantity)} units")
         };
@@ -350,17 +350,17 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "purchases",
-                "Purchased",
+                ReportLabels.Purchased,
                 "bar",
                 snapshot.Daily.Select(d => new ReportSeriesPoint(d.Day.ToString("MM-dd"), d.PurchaseQuantity, "purchased")).ToList()),
             new(
                 "usage",
-                "Used",
+                ReportLabels.Used,
                 "bar",
                 snapshot.Daily.Select(d => new ReportSeriesPoint(d.Day.ToString("MM-dd"), d.ConsumeQuantity, "used")).ToList()),
             new(
                 "categorySpend",
-                "Spend by category",
+                ReportLabels.SpendByCategory,
                 "pie",
                 snapshot.CategorySpend.Select(c => new ReportSeriesPoint(c.Category, c.PurchaseCost)).ToList())
         };
@@ -369,14 +369,14 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "stockMovements",
-                "Daily stock movements",
+                ReportLabels.DailyStockMovements,
                 [
-                    new ReportColumn("day", "Day"),
-                    new ReportColumn("purchaseQuantity", "Purchased qty", "number"),
-                    new ReportColumn("purchaseCost", "Purchased cost", "money"),
-                    new ReportColumn("consumeQuantity", "Used qty", "number"),
-                    new ReportColumn("consumeCost", "Used cost", "money"),
-                    new ReportColumn("adjustmentCost", "Adjustments", "money")
+                    new ReportColumn("day", ReportLabels.Day),
+                    new ReportColumn("purchaseQuantity", ReportLabels.PurchasedQty, "number"),
+                    new ReportColumn("purchaseCost", ReportLabels.PurchasedCost, "money"),
+                    new ReportColumn("consumeQuantity", ReportLabels.UsedQty, "number"),
+                    new ReportColumn("consumeCost", ReportLabels.UsedCost, "money"),
+                    new ReportColumn("adjustmentCost", ReportLabels.Adjustments, "money")
                 ],
                 tableRows)
         };
@@ -409,10 +409,10 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("deliveredOrders", "Delivered orders", rows.Count, rows.Count.ToString()),
-            ReportComposer.Metric("reviewCount", "Reviews", reviewCount, reviewCount.ToString()),
-            ReportComposer.Metric("reclamationCount", "Reclamations", reclamations, reclamations.ToString()),
-            ReportComposer.Metric("averageRating", "Average rating", avgRating, avgRating.ToString("0.0"))
+            ReportComposer.Metric("deliveredOrders", ReportLabels.DeliveredOrders, rows.Count, rows.Count.ToString()),
+            ReportComposer.Metric("reviewCount", ReportLabels.Reviews, reviewCount, reviewCount.ToString()),
+            ReportComposer.Metric("reclamationCount", ReportLabels.Reclamations, reclamations, reclamations.ToString()),
+            ReportComposer.Metric("averageRating", ReportLabels.AverageRating, avgRating, avgRating.ToString("0.0"))
         };
 
         var tableRows = rows.Select(r =>
@@ -441,14 +441,14 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "deliveryAudit",
-                "Delivered orders & reviews",
+                ReportLabels.DeliveredOrdersReviews,
                 [
-                    new ReportColumn("targetDate", "Date"),
-                    new ReportColumn("clientName", "Client"),
-                    new ReportColumn("driverName", "Driver"),
-                    new ReportColumn("dishes", "Dishes"),
-                    new ReportColumn("rating", "Rating", "number"),
-                    new ReportColumn("comment", "Comments")
+                    new ReportColumn("targetDate", ReportLabels.Date),
+                    new ReportColumn("clientName", ReportLabels.Client),
+                    new ReportColumn("driverName", ReportLabels.Driver),
+                    new ReportColumn("dishes", ReportLabels.Dishes),
+                    new ReportColumn("rating", ReportLabels.Rating, "number"),
+                    new ReportColumn("comment", ReportLabels.Comments)
                 ],
                 tableRows)
         };
@@ -457,11 +457,11 @@ public sealed class ReportingService : IReportingService
         [
             new ReportSeries(
                 "reclamations",
-                "Review mix",
+                ReportLabels.ReviewMix,
                 "pie",
                 [
-                    new ReportSeriesPoint("Reclamations", reclamations),
-                    new ReportSeriesPoint("Other reviews", Math.Max(0, reviewCount - reclamations))
+                    new ReportSeriesPoint(ReportLabels.Reclamations, reclamations),
+                    new ReportSeriesPoint(ReportLabels.OtherReviews, Math.Max(0, reviewCount - reclamations))
                 ])
         ];
 
@@ -482,9 +482,9 @@ public sealed class ReportingService : IReportingService
         var portions = rows.Sum(r => r.Portions);
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("dishCount", "Dishes", rows.Count, rows.Count.ToString()),
-            ReportComposer.Metric("portions", "Portions cooked", portions, portions.ToString()),
-            ReportComposer.Metric("revenue", "Dish revenue", rows.Sum(r => r.Revenue),
+            ReportComposer.Metric("dishCount", ReportLabels.Dishes, rows.Count, rows.Count.ToString()),
+            ReportComposer.Metric("portions", ReportLabels.PortionsCooked, portions, portions.ToString()),
+            ReportComposer.Metric("revenue", ReportLabels.DishRevenue, rows.Sum(r => r.Revenue),
                 ReportComposer.Money(rows.Sum(r => r.Revenue)))
         };
 
@@ -499,12 +499,12 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "dishPopularity",
-                "Top dishes",
+                ReportLabels.TopDishes,
                 [
-                    new ReportColumn("dishName", "Dish"),
-                    new ReportColumn("portions", "Portions", "number"),
-                    new ReportColumn("orderCount", "Orders", "number"),
-                    new ReportColumn("revenue", "Revenue", "money")
+                    new ReportColumn("dishName", ReportLabels.Dish),
+                    new ReportColumn("portions", ReportLabels.Portions, "number"),
+                    new ReportColumn("orderCount", ReportLabels.Orders, "number"),
+                    new ReportColumn("revenue", ReportLabels.Revenue, "money")
                 ],
                 tableRows)
         };
@@ -513,10 +513,10 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "dishPortions",
-                "Portions by dish",
+                ReportLabels.PortionsByDish,
                 "bar",
                 rows.Take(12).Select(r => new ReportSeriesPoint(
-                    string.IsNullOrWhiteSpace(r.DishName) ? "Dish" : r.DishName,
+                    string.IsNullOrWhiteSpace(r.DishName) ? ReportLabels.Dish : r.DishName,
                     r.Portions)).ToList())
         };
 
@@ -545,12 +545,12 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("reclamationCount", "Reclamations", reviewCount, reviewCount.ToString(),
+            ReportComposer.Metric("reclamationCount", ReportLabels.Reclamations, reviewCount, reviewCount.ToString(),
                 $"rating ≤ {cap}"),
-            ReportComposer.Metric("averageRating", "Average rating", avg, avg.ToString("0.0")),
-            ReportComposer.Metric("dishCount", "Dishes", rows.Select(r => r.MenuItemId).Distinct().Count(),
+            ReportComposer.Metric("averageRating", ReportLabels.AverageRating, avg, avg.ToString("0.0")),
+            ReportComposer.Metric("dishCount", ReportLabels.Dishes, rows.Select(r => r.MenuItemId).Distinct().Count(),
                 rows.Select(r => r.MenuItemId).Distinct().Count().ToString()),
-            ReportComposer.Metric("clientCount", "Clients", rows.Select(r => r.ClientCompanyId).Distinct().Count(),
+            ReportComposer.Metric("clientCount", ReportLabels.Clients, rows.Select(r => r.ClientCompanyId).Distinct().Count(),
                 rows.Select(r => r.ClientCompanyId).Distinct().Count().ToString())
         };
 
@@ -578,20 +578,20 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "reclamationHeatMap",
-                "Reclamations by client and dish",
+                ReportLabels.ReclamationsByClientDish,
                 [
-                    new ReportColumn("clientName", "Client"),
-                    new ReportColumn("dishName", "Dish"),
-                    new ReportColumn("reviewCount", "Reviews", "number"),
-                    new ReportColumn("averageRating", "Avg rating", "number"),
-                    new ReportColumn("minRating", "Worst", "number")
+                    new ReportColumn("clientName", ReportLabels.Client),
+                    new ReportColumn("dishName", ReportLabels.Dish),
+                    new ReportColumn("reviewCount", ReportLabels.Reviews, "number"),
+                    new ReportColumn("averageRating", ReportLabels.AvgRating, "number"),
+                    new ReportColumn("minRating", ReportLabels.Worst, "number")
                 ],
                 tableRows)
         };
 
         IReadOnlyList<ReportSeries> series =
         [
-            new ReportSeries("reclamationsByDish", "Reclamations by dish", "bar", byDish)
+            new ReportSeries("reclamationsByDish", ReportLabels.ReclamationsByDish, "bar", byDish)
         ];
 
         return new ReportResponse("reclamationHeatMap", ReportTitles.ReclamationHeatMap, from, to, metrics, tables, series);
@@ -648,30 +648,30 @@ public sealed class ReportingService : IReportingService
         var overCount = tableRows.Count(r => r.TryGetValue("isOver", out var flag) && flag is true);
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("ingredientCount", "Ingredients", tableRows.Count, tableRows.Count.ToString()),
-            ReportComposer.Metric("expectedQuantity", "Expected usage", expected.Values.Sum(),
+            ReportComposer.Metric("ingredientCount", ReportLabels.Ingredients, tableRows.Count, tableRows.Count.ToString()),
+            ReportComposer.Metric("expectedQuantity", ReportLabels.ExpectedUsage, expected.Values.Sum(),
                 ReportComposer.Quantity(expected.Values.Sum())),
-            ReportComposer.Metric("actualQuantity", "Actual consumption", actual.Sum(r => r.ConsumeQuantity),
+            ReportComposer.Metric("actualQuantity", ReportLabels.ActualConsumption, actual.Sum(r => r.ConsumeQuantity),
                 ReportComposer.Quantity(actual.Sum(r => r.ConsumeQuantity))),
-            ReportComposer.Metric("overCount", "Over-consumed", overCount, overCount.ToString())
+            ReportComposer.Metric("overCount", ReportLabels.OverConsumed, overCount, overCount.ToString())
         };
 
         var series = new List<ReportSeries>
         {
             new(
                 "expected",
-                "Expected",
+                ReportLabels.Expected,
                 "bar",
                 tableRows.Take(12).Select(r => new ReportSeriesPoint(
-                    Convert.ToString(r["name"]) ?? "Ingredient",
+                    Convert.ToString(r["name"]) ?? ReportLabels.Ingredient,
                     Convert.ToDecimal(r["expectedQuantity"] ?? 0m),
                     "expected")).ToList()),
             new(
                 "actual",
-                "Actual",
+                ReportLabels.Actual,
                 "bar",
                 tableRows.Take(12).Select(r => new ReportSeriesPoint(
-                    Convert.ToString(r["name"]) ?? "Ingredient",
+                    Convert.ToString(r["name"]) ?? ReportLabels.Ingredient,
                     Convert.ToDecimal(r["actualQuantity"] ?? 0m),
                     "actual")).ToList())
         };
@@ -680,14 +680,14 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "consumptionVariance",
-                "Expected vs actual consumption",
+                ReportLabels.ExpectedVsActual,
                 [
-                    new ReportColumn("name", "Ingredient"),
-                    new ReportColumn("unit", "Unit"),
-                    new ReportColumn("expectedQuantity", "Expected", "number"),
-                    new ReportColumn("actualQuantity", "Actual", "number"),
-                    new ReportColumn("varianceQuantity", "Variance", "number"),
-                    new ReportColumn("variancePercent", "Variance %", "number")
+                    new ReportColumn("name", ReportLabels.Ingredient),
+                    new ReportColumn("unit", ReportLabels.Unit),
+                    new ReportColumn("expectedQuantity", ReportLabels.Expected, "number"),
+                    new ReportColumn("actualQuantity", ReportLabels.Actual, "number"),
+                    new ReportColumn("varianceQuantity", ReportLabels.Variance, "number"),
+                    new ReportColumn("variancePercent", ReportLabels.VariancePercent, "number")
                 ],
                 tableRows)
         };
@@ -715,28 +715,28 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("purchaseCost", "Purchased", stock.PurchaseCost,
+            ReportComposer.Metric("purchaseCost", ReportLabels.Purchased, stock.PurchaseCost,
                 ReportComposer.Money(stock.PurchaseCost)),
-            ReportComposer.Metric("consumeCost", "Consumed", stock.ConsumeCost,
+            ReportComposer.Metric("consumeCost", ReportLabels.Consumed, stock.ConsumeCost,
                 ReportComposer.Money(stock.ConsumeCost)),
-            ReportComposer.Metric("revenue", "Order revenue", revenue, ReportComposer.Money(revenue)),
-            ReportComposer.Metric("foodCostPercent", "Food-cost %", foodCost, ReportComposer.Percent(foodCost),
-                "consumed / revenue"),
-            ReportComposer.Metric("adjustmentCost", "Adjustments / spoilage", stock.AdjustmentCost,
+            ReportComposer.Metric("revenue", ReportLabels.OrderRevenue, revenue, ReportComposer.Money(revenue)),
+            ReportComposer.Metric("foodCostPercent", ReportLabels.FoodCostPercent, foodCost, ReportComposer.Percent(foodCost),
+                ReportLabels.ConsumedCostHint),
+            ReportComposer.Metric("adjustmentCost", ReportLabels.AdjustmentsSpoilage, stock.AdjustmentCost,
                 ReportComposer.Money(stock.AdjustmentCost)),
-            ReportComposer.Metric("usedShare", "Used share of purchases", usedShare, ReportComposer.Percent(usedShare))
+            ReportComposer.Metric("usedShare", ReportLabels.UsedShareOfPurchases, usedShare, ReportComposer.Percent(usedShare))
         };
 
         IReadOnlyList<ReportSeries> series =
         [
             new ReportSeries(
                 "costMix",
-                "Cost mix",
+                ReportLabels.CostMix,
                 "pie",
                 [
-                    new ReportSeriesPoint("Consumed", stock.ConsumeCost),
-                    new ReportSeriesPoint("Adjustments", stock.AdjustmentCost),
-                    new ReportSeriesPoint("Remaining purchases", Math.Max(0, stock.PurchaseCost - stock.ConsumeCost))
+                    new ReportSeriesPoint(ReportLabels.Consumed, stock.ConsumeCost),
+                    new ReportSeriesPoint(ReportLabels.Adjustments, stock.AdjustmentCost),
+                    new ReportSeriesPoint(ReportLabels.RemainingPurchases, Math.Max(0, stock.PurchaseCost - stock.ConsumeCost))
                 ])
         ];
 
@@ -744,12 +744,12 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "foodCostDaily",
-                "Daily usage cost",
+                ReportLabels.DailyUsageCost,
                 [
-                    new ReportColumn("day", "Day"),
-                    new ReportColumn("purchaseCost", "Purchased", "money"),
-                    new ReportColumn("consumeCost", "Consumed", "money"),
-                    new ReportColumn("adjustmentCost", "Adjustments", "money")
+                    new ReportColumn("day", ReportLabels.Day),
+                    new ReportColumn("purchaseCost", ReportLabels.Purchased, "money"),
+                    new ReportColumn("consumeCost", ReportLabels.Consumed, "money"),
+                    new ReportColumn("adjustmentCost", ReportLabels.Adjustments, "money")
                 ],
                 stock.Daily.Select(d => ReportComposer.Row(
                     ("day", d.Day.ToString("yyyy-MM-dd")),
@@ -803,9 +803,9 @@ public sealed class ReportingService : IReportingService
         var deficitCount = rows.Count(r => r.TryGetValue("isDeficit", out var flag) && flag is true);
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("ingredientCount", "Ingredients", rows.Count, rows.Count.ToString()),
-            ReportComposer.Metric("deficitCount", "Shortages", deficitCount, deficitCount.ToString()),
-            ReportComposer.Metric("portions", "Confirmed portions", demand.Sum(d => d.Portions),
+            ReportComposer.Metric("ingredientCount", ReportLabels.Ingredients, rows.Count, rows.Count.ToString()),
+            ReportComposer.Metric("deficitCount", ReportLabels.Shortages, deficitCount, deficitCount.ToString()),
+            ReportComposer.Metric("portions", ReportLabels.ConfirmedPortions, demand.Sum(d => d.Portions),
                 demand.Sum(d => d.Portions).ToString())
         };
 
@@ -813,12 +813,12 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "toBuy",
-                "To buy",
+                ReportLabels.ToBuy,
                 "bar",
                 rows.Where(r => Convert.ToDecimal(r["toBuyQuantity"] ?? 0m) > 0)
                     .Take(12)
                     .Select(r => new ReportSeriesPoint(
-                        Convert.ToString(r["name"]) ?? "Ingredient",
+                        Convert.ToString(r["name"]) ?? ReportLabels.Ingredient,
                         Convert.ToDecimal(r["toBuyQuantity"] ?? 0m)))
                     .ToList())
         };
@@ -827,13 +827,13 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "shortageForecast",
-                "Shopping & shortage forecast",
+                ReportLabels.ShoppingShortageForecast,
                 [
-                    new ReportColumn("name", "Ingredient"),
-                    new ReportColumn("unit", "Unit"),
-                    new ReportColumn("requiredQuantity", "Required", "number"),
-                    new ReportColumn("availableQuantity", "On hand", "number"),
-                    new ReportColumn("toBuyQuantity", "To buy", "number")
+                    new ReportColumn("name", ReportLabels.Ingredient),
+                    new ReportColumn("unit", ReportLabels.Unit),
+                    new ReportColumn("requiredQuantity", ReportLabels.Required, "number"),
+                    new ReportColumn("availableQuantity", ReportLabels.OnHand, "number"),
+                    new ReportColumn("toBuyQuantity", ReportLabels.ToBuy, "number")
                 ],
                 rows)
         };
@@ -856,12 +856,12 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("driverCount", "Drivers", rows.Count, rows.Count.ToString()),
-            ReportComposer.Metric("orderCount", "Delivered orders", rows.Sum(r => r.OrderCount),
+            ReportComposer.Metric("driverCount", ReportLabels.Drivers, rows.Count, rows.Count.ToString()),
+            ReportComposer.Metric("orderCount", ReportLabels.DeliveredOrders, rows.Sum(r => r.OrderCount),
                 rows.Sum(r => r.OrderCount).ToString()),
-            ReportComposer.Metric("portions", "Portions", rows.Sum(r => r.Portions),
+            ReportComposer.Metric("portions", ReportLabels.Portions, rows.Sum(r => r.Portions),
                 rows.Sum(r => r.Portions).ToString()),
-            ReportComposer.Metric("revenue", "Delivered revenue", rows.Sum(r => r.Revenue),
+            ReportComposer.Metric("revenue", ReportLabels.DeliveredRevenue, rows.Sum(r => r.Revenue),
                 ReportComposer.Money(rows.Sum(r => r.Revenue)))
         };
 
@@ -869,7 +869,7 @@ public sealed class ReportingService : IReportingService
         {
             var name = r.DriverId is Guid id && names.TryGetValue(id, out var display)
                 ? display
-                : "Unassigned";
+                : ReportLabels.Unassigned;
             return ReportComposer.Row(
                 ("driverId", r.DriverId),
                 ("driverName", name),
@@ -883,10 +883,10 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "ordersByDriver",
-                "Delivered orders by driver",
+                ReportLabels.DeliveredOrdersByDriver,
                 "bar",
                 tableRows.Take(12).Select(r => new ReportSeriesPoint(
-                    Convert.ToString(r["driverName"]) ?? "Driver",
+                    Convert.ToString(r["driverName"]) ?? ReportLabels.Driver,
                     Convert.ToDecimal(r["orderCount"] ?? 0))).ToList())
         };
 
@@ -894,13 +894,13 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "driverEfficiency",
-                "Driver fulfillment",
+                ReportLabels.DriverFulfillment,
                 [
-                    new ReportColumn("driverName", "Driver"),
-                    new ReportColumn("orderCount", "Orders", "number"),
-                    new ReportColumn("portions", "Portions", "number"),
-                    new ReportColumn("distinctClients", "Clients", "number"),
-                    new ReportColumn("revenue", "Revenue", "money")
+                    new ReportColumn("driverName", ReportLabels.Driver),
+                    new ReportColumn("orderCount", ReportLabels.Orders, "number"),
+                    new ReportColumn("portions", ReportLabels.Portions, "number"),
+                    new ReportColumn("distinctClients", ReportLabels.Clients, "number"),
+                    new ReportColumn("revenue", ReportLabels.Revenue, "money")
                 ],
                 tableRows)
         };
@@ -924,11 +924,11 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("spend", "Purchase spend", total, ReportComposer.Money(total)),
-            ReportComposer.Metric("quantity", "Volume bought", rows.Sum(r => r.Quantity),
+            ReportComposer.Metric("spend", ReportLabels.PurchaseSpend, total, ReportComposer.Money(total)),
+            ReportComposer.Metric("quantity", ReportLabels.VolumeBought, rows.Sum(r => r.Quantity),
                 ReportComposer.Quantity(rows.Sum(r => r.Quantity))),
-            ReportComposer.Metric("supplierCount", "Suppliers", rows.Count, rows.Count.ToString()),
-            ReportComposer.Metric("batchCount", "Receipts", rows.Sum(r => r.BatchCount),
+            ReportComposer.Metric("supplierCount", ReportLabels.Suppliers, rows.Count, rows.Count.ToString()),
+            ReportComposer.Metric("batchCount", ReportLabels.Receipts, rows.Sum(r => r.BatchCount),
                 rows.Sum(r => r.BatchCount).ToString())
         };
 
@@ -948,7 +948,7 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "spendBySupplier",
-                "Spend by supplier",
+                ReportLabels.SpendBySupplier,
                 "pie",
                 rows.Take(8).Select(r => new ReportSeriesPoint(r.SupplierName, r.Spend)).ToList())
         };
@@ -957,13 +957,13 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "supplierSpend",
-                "Supplier spend",
+                ReportLabels.SupplierSpend,
                 [
-                    new ReportColumn("supplierName", "Supplier"),
-                    new ReportColumn("spend", "Spend", "money"),
-                    new ReportColumn("quantity", "Volume", "number"),
-                    new ReportColumn("batchCount", "Receipts", "number"),
-                    new ReportColumn("sharePercent", "Share %", "number")
+                    new ReportColumn("supplierName", ReportLabels.Supplier),
+                    new ReportColumn("spend", ReportLabels.Spend, "money"),
+                    new ReportColumn("quantity", ReportLabels.Volume, "number"),
+                    new ReportColumn("batchCount", ReportLabels.Receipts, "number"),
+                    new ReportColumn("sharePercent", ReportLabels.SharePercent, "number")
                 ],
                 tableRows)
         };
@@ -986,12 +986,12 @@ public sealed class ReportingService : IReportingService
         var lost = rows.Sum(r => r.LostRevenue);
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("orderCount", "Cancelled orders", rows.Sum(r => r.OrderCount),
+            ReportComposer.Metric("orderCount", ReportLabels.CancelledOrders, rows.Sum(r => r.OrderCount),
                 rows.Sum(r => r.OrderCount).ToString()),
-            ReportComposer.Metric("lostRevenue", "Lost revenue", lost, ReportComposer.Money(lost)),
-            ReportComposer.Metric("portions", "Lost portions", rows.Sum(r => r.Portions),
+            ReportComposer.Metric("lostRevenue", ReportLabels.LostRevenue, lost, ReportComposer.Money(lost)),
+            ReportComposer.Metric("portions", ReportLabels.LostPortions, rows.Sum(r => r.Portions),
                 rows.Sum(r => r.Portions).ToString()),
-            ReportComposer.Metric("clientCount", "Clients", rows.Select(r => r.ClientCompanyId).Distinct().Count(),
+            ReportComposer.Metric("clientCount", ReportLabels.Clients, rows.Select(r => r.ClientCompanyId).Distinct().Count(),
                 rows.Select(r => r.ClientCompanyId).Distinct().Count().ToString())
         };
 
@@ -1013,7 +1013,7 @@ public sealed class ReportingService : IReportingService
             .Select(g =>
             {
                 contacts.TryGetValue(g.Key, out var client);
-                return new ReportSeriesPoint(client?.Name ?? "Client", g.Sum(x => x.LostRevenue));
+                return new ReportSeriesPoint(client?.Name ?? ReportLabels.Client, g.Sum(x => x.LostRevenue));
             })
             .OrderByDescending(p => p.Value)
             .Take(12)
@@ -1023,21 +1023,21 @@ public sealed class ReportingService : IReportingService
         {
             new(
                 "cancellations",
-                "Cancellations by client and date",
+                ReportLabels.CancellationsByClientDate,
                 [
-                    new ReportColumn("targetDate", "Date"),
-                    new ReportColumn("clientName", "Client"),
-                    new ReportColumn("reason", "Reason"),
-                    new ReportColumn("orderCount", "Orders", "number"),
-                    new ReportColumn("portions", "Portions", "number"),
-                    new ReportColumn("lostRevenue", "Lost revenue", "money")
+                    new ReportColumn("targetDate", ReportLabels.Date),
+                    new ReportColumn("clientName", ReportLabels.Client),
+                    new ReportColumn("reason", ReportLabels.Reason),
+                    new ReportColumn("orderCount", ReportLabels.Orders, "number"),
+                    new ReportColumn("portions", ReportLabels.Portions, "number"),
+                    new ReportColumn("lostRevenue", ReportLabels.LostRevenue, "money")
                 ],
                 tableRows)
         };
 
         IReadOnlyList<ReportSeries> series =
         [
-            new ReportSeries("lostRevenueByClient", "Lost revenue by client", "bar", byClient)
+            new ReportSeries("lostRevenueByClient", ReportLabels.LostRevenueByClient, "bar", byClient)
         ];
 
         return new ReportResponse("cancellations", ReportTitles.Cancellations, from, to, metrics, tables, series);

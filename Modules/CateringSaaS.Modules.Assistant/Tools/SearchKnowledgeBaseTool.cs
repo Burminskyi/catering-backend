@@ -78,7 +78,7 @@ public sealed class SearchKnowledgeBaseTool : IAssistantTool
                 "Knowledge matches",
                 [
                     new ArtifactColumn("rank", "#"),
-                    new ArtifactColumn("documentTitle", "Document"),
+                    new ArtifactColumn("documentTitle", CateringSaaS.Modules.Reporting.Services.ReportLabels.Document),
                     new ArtifactColumn("chunkIndex", "Chunk"),
                     new ArtifactColumn("distance", "Distance"),
                     new ArtifactColumn("content", "Excerpt")
