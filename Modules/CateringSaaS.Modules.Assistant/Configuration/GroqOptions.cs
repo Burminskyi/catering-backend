@@ -8,8 +8,8 @@ public sealed class GroqOptions
 
     public string ApiKey { get; set; } = string.Empty;
 
-    // 70B often returns model_not_found on free/dev keys; 8B is the reliable default.
-    public string Model { get; set; } = "llama-3.1-8b-instant";
+    // Use an id from GET /openai/v1/models for this key — Llama ids are often unavailable.
+    public string Model { get; set; } = "openai/gpt-oss-120b";
 
     public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
 }

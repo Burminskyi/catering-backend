@@ -325,7 +325,7 @@ public sealed class AssistantChatService : IAssistantChatService
         };
 
         var model = string.IsNullOrWhiteSpace(_options.Model)
-            ? "llama-3.1-8b-instant"
+            ? "openai/gpt-oss-120b"
             : _options.Model.Trim();
 
         return new ChatClient(
