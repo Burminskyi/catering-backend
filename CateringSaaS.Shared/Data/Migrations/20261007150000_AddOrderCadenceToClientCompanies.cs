@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CateringSaaS.Shared.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class AddClientOrderCadence : Migration
+    public partial class AddOrderCadenceToClientCompanies : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

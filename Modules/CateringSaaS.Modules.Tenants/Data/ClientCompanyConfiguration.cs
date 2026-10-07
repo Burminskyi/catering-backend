@@ -31,6 +31,7 @@ public sealed class ClientCompanyConfiguration : IEntityTypeConfiguration<Client
         builder.Property(c => c.OrderCadence)
             .HasConversion<string>()
             .HasMaxLength(32)
+            .HasDefaultValue(ClientOrderCadence.Daily)
             .IsRequired();
 
         builder.Property(c => c.IsActive)
