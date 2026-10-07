@@ -46,6 +46,9 @@ public sealed class AssistantChatService : IAssistantChatService
         Tool names and parameter names stay in English. Do not invent data — call tools.
         Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
         Prefer concise answers and highlight key metrics from tool results.
+        When tools return artifacts (tables/charts), keep the chat reply short: 3–6 bullets or a brief paragraph.
+        Do not paste large markdown tables into chat — the UI already shows those as live artifacts.
+        Use bold for key numbers. Avoid decorative ASCII separators.
         If a knowledge search returns no relevant documents, say so and do not fabricate policy or recipe text.
         """;
 
