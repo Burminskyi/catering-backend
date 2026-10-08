@@ -297,27 +297,83 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         var k = Math.Clamp(topK, 1, 10);
         var embedding = await _embeddings.GenerateEmbeddingAsync(trimmed, cancellationToken);
         var queryVector = new Vector(embedding);
+        var modelName = _embeddings.ModelName;
+        var isLocal = modelName.StartsWith("local/", StringComparison.OrdinalIgnoreCase);
+        var maxDistance = isLocal
+            ? KnowledgeEmbeddingConstants.MaxCosineDistanceLocal
+            : KnowledgeEmbeddingConstants.MaxCosineDistance;
 
-        var hits = await _dbContext.Set<KnowledgeChunk>()
+        var projected = await _dbContext.Set<KnowledgeChunk>()
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => c.WorkspaceId == workspaceId)
             .Where(c => c.Document.Status == KnowledgeDocumentStatus.Ready)
             .OrderBy(c => VectorDbFunctionsExtensions.CosineDistance(c.Embedding, queryVector))
             .Take(k)
-            .Select(c => new KnowledgeSearchHit(
+            .Select(c => new
+            {
                 c.Id,
                 c.DocumentId,
                 c.Document.Title,
                 c.Document.OriginalFileName,
+                c.Document.FileUrl,
                 c.ChunkIndex,
                 c.Content,
-                VectorDbFunctionsExtensions.CosineDistance(c.Embedding, queryVector)))
+                Distance = VectorDbFunctionsExtensions.CosineDistance(c.Embedding, queryVector)
+            })
             .ToListAsync(cancellationToken);
 
-        return hits
-            .Where(hit => hit.Distance <= KnowledgeEmbeddingConstants.MaxCosineDistance)
+        var hits = projected
+            .Select(c => new KnowledgeSearchHit(
+                c.Id,
+                c.DocumentId,
+                c.Title,
+                c.OriginalFileName,
+                c.ChunkIndex,
+                c.Content,
+                c.Distance,
+                ResolveDownloadUrl(c.FileUrl)))
             .ToList();
+
+        _logger.LogInformation(
+            "Knowledge vector search: model={Model}, query=\"{Query}\", topK={TopK}, maxCosineDistance={MaxDistance}, rawHits={RawCount}",
+            modelName,
+            trimmed.Length > 120 ? trimmed[..120] + "…" : trimmed,
+            k,
+            maxDistance,
+            hits.Count);
+
+        foreach (var hit in hits)
+        {
+            var snippet = hit.Content.Length <= 160
+                ? hit.Content
+                : hit.Content[..160].TrimEnd() + "…";
+            var accepted = hit.Distance <= maxDistance;
+            _logger.LogInformation(
+                "Knowledge hit: accepted={Accepted} distance={Distance:F4} title=\"{Title}\" file=\"{File}\" chunk=#{ChunkIndex} snippet=\"{Snippet}\"",
+                accepted,
+                hit.Distance,
+                hit.DocumentTitle,
+                hit.FileName,
+                hit.ChunkIndex,
+                snippet);
+        }
+
+        var filtered = hits
+            .Where(hit => hit.Distance <= maxDistance)
+            .ToList();
+
+        if (hits.Count > 0 && filtered.Count == 0)
+        {
+            _logger.LogWarning(
+                "Knowledge vector search filtered out all {RawCount} chunks (best distance={Best:F4} > max={MaxDistance}). Model={Model}.",
+                hits.Count,
+                hits.Min(h => h.Distance),
+                maxDistance,
+                modelName);
+        }
+
+        return filtered;
     }
 
     private async Task ReplaceExistingFileAsync(

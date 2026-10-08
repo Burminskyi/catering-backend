@@ -22,6 +22,7 @@ public static class AssistantModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(AssistantConversationConfiguration).Assembly);
 
         services.Configure<GroqOptions>(configuration.GetSection(GroqOptions.SectionName));
+        services.Configure<AssistantRagOptions>(configuration.GetSection(AssistantRagOptions.SectionName));
 
         services.AddHttpClient(GroqOptions.HttpClientName, client =>
         {

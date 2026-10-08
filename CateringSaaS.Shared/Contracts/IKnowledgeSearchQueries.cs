@@ -7,7 +7,8 @@ public sealed record KnowledgeSearchHit(
     string FileName,
     int ChunkIndex,
     string Content,
-    double Distance);
+    double Distance,
+    string? DownloadUrl = null);
 
 public interface IKnowledgeSearchQueries
 {

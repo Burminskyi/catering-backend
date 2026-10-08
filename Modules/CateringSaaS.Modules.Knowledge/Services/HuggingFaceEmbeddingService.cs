@@ -91,6 +91,15 @@ public sealed class HuggingFaceEmbeddingService : IEmbeddingService
                 "Hugging Face embedding failed ({Status}): {Body}",
                 (int)response.StatusCode,
                 Truncate(payload, 500));
+
+            if ((int)response.StatusCode == 402
+                || payload.Contains("no remaining credits", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Hugging Face credits are exhausted. Top up Inference Providers credits, "
+                    + "or set Embeddings:Provider=OpenAI with OpenAIEmbeddings:ApiKey.");
+            }
+
             throw new InvalidOperationException(
                 $"Hugging Face embedding request failed ({(int)response.StatusCode}). {Truncate(payload, 200)}");
         }

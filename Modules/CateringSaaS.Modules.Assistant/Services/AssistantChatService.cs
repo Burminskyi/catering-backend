@@ -51,6 +51,14 @@ public sealed class AssistantChatService : IAssistantChatService
         - Write dates, month names, and relative phrases in that same reply language. Do not mix languages in one answer.
         - Do not translate database field values (client names, dish names, ingredient names, supplier names, status codes as stored). Quote them as returned by tools.
         - Chart/table chrome (titles, column headers, legends) is localized by the server from the reply language; do not invent English labels in chat when the user wrote in another language.
+        Knowledge / RAG rules (mandatory when search_knowledge_base returns documentChunks):
+        - You are provided with context chunks from internal documents inside [DOCUMENT CHUNKS] / <context>.
+        - The user query may be in Ukrainian, English, or Russian, while documents may be in another language.
+        - Read and translate the facts from the provided context chunks to answer the user's question accurately in the user's language.
+        - Rely ONLY on the provided context. Do not invent HACCP rules, temperatures, contract clauses, or recipes that are not in those chunks.
+        - Quote concrete numbers, temperatures, and rule names from the chunks. Name the source document title.
+        - If relevant is false or [DOCUMENT CHUNKS] says nothing was found, say so clearly and do not fabricate policy text.
+        - For knowledge answers: use <<<CHAT>>> (short answer + source title) and <<<OVERVIEW>>> (detailed explanation from chunks). Do not invent chart/table markers.
         Tool names and parameter names stay in English. Do not invent data — call tools.
         Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
         Tool discipline (mandatory):
@@ -78,7 +86,24 @@ public sealed class AssistantChatService : IAssistantChatService
         If a knowledge search returns no relevant documents, say so and do not fabricate policy or recipe text.
         """;
 
+    /// <summary>Lean prompt for the post-RAG answer turn — saves TPM vs the full ERP system prompt.</summary>
+    private const string KnowledgeAnswerSystemPrompt =
+        """
+        You are SmartCatering's knowledge assistant.
+        You are provided with context chunks from internal documents inside [DOCUMENT CHUNKS] / <context>.
+        The user query may be in Ukrainian, English, or Russian, while documents may be in another language.
+        Read and translate the facts from the provided context chunks to answer the user's question accurately in the user's language.
+        Rely ONLY on the provided context. Do not invent HACCP rules, temperatures, contract clauses, or recipes.
+        Cite the source document title. If context says nothing relevant was found, say so clearly.
+        Do not call tools. Use these markers on their own lines:
+        <<<CHAT>>>
+        Short answer (2–5 sentences) with the key rule/number and the source document title.
+        <<<OVERVIEW>>>
+        Detailed explanation from the chunks: all relevant rules, temperatures, timings, exceptions. Markdown bullets OK. No chart talk.
+        """;
+
     private readonly GroqOptions _options;
+    private readonly AssistantRagOptions _rag;
     private readonly IReadOnlyDictionary<string, IAssistantTool> _tools;
     private readonly IAssistantConversationStore _conversations;
     private readonly IClientTimeContext _clock;
@@ -87,6 +112,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
     public AssistantChatService(
         IOptions<GroqOptions> options,
+        IOptions<AssistantRagOptions> rag,
         IEnumerable<IAssistantTool> tools,
         IAssistantConversationStore conversations,
         IClientTimeContext clock,
@@ -94,6 +120,7 @@ public sealed class AssistantChatService : IAssistantChatService
         ILogger<AssistantChatService> logger)
     {
         _options = options.Value;
+        _rag = rag.Value;
         _tools = tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
         _conversations = conversations;
         _clock = clock;
@@ -147,7 +174,10 @@ public sealed class AssistantChatService : IAssistantChatService
                     stored.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
                 }
 
-                if (cacheHits == completion.ToolCalls.Count)
+                // Knowledge answers need no further tools; drop schemas on the next turn to save TPM.
+                if (cacheHits == completion.ToolCalls.Count
+                    || completion.ToolCalls.All(c =>
+                        string.Equals(c.FunctionName, "search_knowledge_base", StringComparison.Ordinal)))
                 {
                     allowTools = false;
                 }
@@ -260,7 +290,10 @@ public sealed class AssistantChatService : IAssistantChatService
                 }
 
                 ranTools = true;
-                if (cacheHits == builtCalls.Count)
+                // Knowledge answers need no further tools; drop schemas on the next turn to save TPM.
+                if (cacheHits == builtCalls.Count
+                    || builtCalls.All(c =>
+                        string.Equals(c.FunctionName, "search_knowledge_base", StringComparison.Ordinal)))
                 {
                     allowTools = false;
                 }
@@ -300,7 +333,9 @@ public sealed class AssistantChatService : IAssistantChatService
         List<AssistantArtifact> collectedArtifacts,
         List<ChatMessage> stored)
     {
-        var preferOverview = collectedArtifacts.Count > 0
+        var hasKnowledgeSources = collectedArtifacts.Any(a => a is KnowledgeSourcesArtifact);
+        var preferOverview = hasKnowledgeSources
+            || collectedArtifacts.Count > 0
             || finalText.Contains("<<<OVERVIEW>>>", StringComparison.OrdinalIgnoreCase)
             || finalText.Contains("##OVERVIEW##", StringComparison.OrdinalIgnoreCase)
             || finalText.Contains('|');
@@ -325,13 +360,40 @@ public sealed class AssistantChatService : IAssistantChatService
 
         var artifactsOut = new List<AssistantArtifact>(collectedArtifacts.Count + 1);
         artifactsOut.AddRange(collectedArtifacts.Where(a => a is not OverviewArtifact));
-        if (!string.IsNullOrWhiteSpace(overview))
+
+        // Avoid duplicating the same short answer in chat and overview for knowledge replies.
+        if (!string.IsNullOrWhiteSpace(overview)
+            && !(hasKnowledgeSources && IsNearDuplicate(chatText, overview)))
         {
             artifactsOut.Insert(0, new OverviewArtifact(overview.Trim()));
         }
 
         return (chatText, artifactsOut, title);
     }
+
+    private static bool IsNearDuplicate(string left, string right)
+    {
+        var a = NormalizeForCompare(left);
+        var b = NormalizeForCompare(right);
+        if (a.Length == 0 || b.Length == 0)
+        {
+            return false;
+        }
+
+        if (a == b)
+        {
+            return true;
+        }
+
+        var shorter = a.Length <= b.Length ? a : b;
+        var longer = a.Length <= b.Length ? b : a;
+        return longer.StartsWith(shorter, StringComparison.Ordinal) && longer.Length <= shorter.Length + 40;
+    }
+
+    private static string NormalizeForCompare(string value) =>
+        string.Join(
+            ' ',
+            value.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private (ConversationKey Key, Guid ConversationId, string UserMessage) PrepareConversation(
         AssistantChatRequest request,
@@ -435,6 +497,14 @@ public sealed class AssistantChatService : IAssistantChatService
             conversational = conversational[start..];
         }
 
+        // Free-tier TPM: lean window. Production (UseLeanKnowledgeWindow=false) keeps full ERP prompt + chunks.
+        if (forceAnswer
+            && _rag.UseLeanKnowledgeWindow
+            && TryBuildKnowledgeAnswerWindow(conversational, replyLanguage, out var knowledgeWindow))
+        {
+            return knowledgeWindow;
+        }
+
         var window = new List<ChatMessage>(conversational.Count + 3)
         {
             new SystemChatMessage(StaticSystemPrompt),
@@ -444,11 +514,101 @@ public sealed class AssistantChatService : IAssistantChatService
         if (forceAnswer)
         {
             window.Add(new SystemChatMessage(
-                "Tool results for this request are already complete. Do not call tools. Write <<<TITLE>>> (short topic + period, not a question), <<<CHAT>>> (markdown ## Summary/Итог heading, 1–2 sentences naming the tool period, then key-number bullets) and <<<OVERVIEW>>> (intent brief: understood request, period, implied metrics — no Summary heading, no number dump) now. Use only those facts."));
+                """
+                Tool results for this request are already complete. Do not call tools.
+                If the latest tool payload contains [DOCUMENT CHUNKS] / <context>: answer ONLY from that context, translate facts into the user's language, cite document titles, and write a normal short reply (no <<<TITLE>>>/<<<CHAT>>>/<<<OVERVIEW>>> markers).
+                Otherwise (metrics/tables): Write <<<TITLE>>> (short topic + period, not a question), <<<CHAT>>> (markdown ## Summary/Итог heading, 1–2 sentences naming the tool period, then key-number bullets) and <<<OVERVIEW>>> (intent brief: understood request, period, implied metrics — no Summary heading, no number dump) now. Use only those facts.
+                """));
         }
 
         window.AddRange(conversational);
         return window;
+    }
+
+    private static bool TryBuildKnowledgeAnswerWindow(
+        IReadOnlyList<ChatMessage> conversational,
+        string replyLanguage,
+        out List<ChatMessage> window)
+    {
+        window = [];
+        string? documentChunks = null;
+        for (var i = conversational.Count - 1; i >= 0; i--)
+        {
+            if (conversational[i] is not ToolChatMessage toolMessage)
+            {
+                continue;
+            }
+
+            var raw = ExtractToolMessageText(toolMessage);
+            if (raw is null || !raw.Contains("[DOCUMENT CHUNKS]", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            documentChunks = ExtractDocumentChunks(raw) ?? raw;
+            break;
+        }
+
+        if (documentChunks is null)
+        {
+            return false;
+        }
+
+        UserChatMessage? lastUser = null;
+        for (var i = conversational.Count - 1; i >= 0; i--)
+        {
+            if (conversational[i] is UserChatMessage user)
+            {
+                lastUser = user;
+                break;
+            }
+        }
+
+        if (lastUser is null)
+        {
+            return false;
+        }
+
+        window =
+        [
+            new SystemChatMessage(KnowledgeAnswerSystemPrompt),
+            new SystemChatMessage(BuildLanguagePrompt(replyLanguage)),
+            lastUser,
+            new SystemChatMessage(documentChunks)
+        ];
+        return true;
+    }
+
+    private static string? ExtractToolMessageText(ToolChatMessage message)
+    {
+        if (message.Content.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Concat(message.Content.Select(part => part.Text));
+    }
+
+    private static string? ExtractDocumentChunks(string toolJson)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(toolJson);
+            if (!doc.RootElement.TryGetProperty("documentChunks", out var node))
+            {
+                return null;
+            }
+
+            var text = node.GetString();
+            return !string.IsNullOrWhiteSpace(text)
+                && text.Contains("[DOCUMENT CHUNKS]", StringComparison.Ordinal)
+                ? text
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     private string BuildClockPrompt()

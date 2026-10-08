@@ -65,8 +65,19 @@ internal static class ReportArtifactMapper
         IEnumerable<IReadOnlyDictionary<string, object?>> rows) =>
         BuildTableFact(title, columns, rows.ToList());
 
-    public static string ToToolJson(ToolResult result) =>
-        JsonSerializer.Serialize(result.Data, JsonOptions);
+    /// <summary>
+    /// Soft ceiling for oversized report tools. Knowledge RAG needs full chunk text;
+    /// after search_knowledge_base we drop tool schemas on the next turn for TPM headroom.
+    /// </summary>
+    public const int MaxToolJsonChars = 16_000;
+
+    public static string ToToolJson(ToolResult result)
+    {
+        var json = JsonSerializer.Serialize(result.Data, JsonOptions);
+        return json.Length <= MaxToolJsonChars
+            ? json
+            : json[..(MaxToolJsonChars - 1)] + "…";
+    }
 
     private static object BuildTableFact(ReportTable table) =>
         BuildTableFact(

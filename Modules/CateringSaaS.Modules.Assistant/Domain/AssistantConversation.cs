@@ -19,4 +19,9 @@ public sealed class AssistantConversation
 
     /// <summary>JSON of the latest artifacts canvas payload, if any.</summary>
     public string? LastArtifactsJson { get; set; }
+
+    /// <summary>
+    /// JSON string array of accumulated origins: knowledge | operations | chat.
+    /// </summary>
+    public string SourcesJson { get; set; } = "[]";
 }

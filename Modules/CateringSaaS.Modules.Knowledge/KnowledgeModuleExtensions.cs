@@ -26,14 +26,33 @@ public static class KnowledgeModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(KnowledgeDocumentConfiguration).Assembly);
 
         services.Configure<HuggingFaceOptions>(configuration.GetSection(HuggingFaceOptions.SectionName));
+        services.Configure<OpenAiEmbeddingOptions>(configuration.GetSection(OpenAiEmbeddingOptions.SectionName));
+        services.Configure<EmbeddingOptions>(configuration.GetSection(EmbeddingOptions.SectionName));
         services.Configure<S3Options>(configuration.GetSection(S3Options.SectionName));
 
-        services.AddHttpClient<IEmbeddingService, HuggingFaceEmbeddingService>(client =>
+        var embeddingProvider = configuration
+            .GetSection(EmbeddingOptions.SectionName)
+            .GetValue<string>("Provider")
+            ?.Trim();
+
+        if (string.Equals(embeddingProvider, "OpenAI", StringComparison.OrdinalIgnoreCase))
         {
-            client.BaseAddress = new Uri(HuggingFaceRouterBaseUrl);
-            client.Timeout = TimeSpan.FromMinutes(3);
-        })
-        .AddPolicyHandler(TransientHttpRetryPolicy.Create());
+            services.AddSingleton<IEmbeddingService, OpenAiEmbeddingService>();
+        }
+        else if (string.Equals(embeddingProvider, "Local", StringComparison.OrdinalIgnoreCase))
+        {
+            // Free CPU ONNX embeddings — no Hugging Face / OpenAI credits required.
+            services.AddSingleton<IEmbeddingService, LocalEmbeddingService>();
+        }
+        else
+        {
+            services.AddHttpClient<IEmbeddingService, HuggingFaceEmbeddingService>(client =>
+            {
+                client.BaseAddress = new Uri(HuggingFaceRouterBaseUrl);
+                client.Timeout = TimeSpan.FromMinutes(3);
+            })
+            .AddPolicyHandler(TransientHttpRetryPolicy.Create());
+        }
 
         services.AddSingleton<IStorageService, S3StorageService>();
         services.AddSingleton<ITextChunker, TextChunker>();

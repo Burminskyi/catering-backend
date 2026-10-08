@@ -23,6 +23,11 @@ public sealed class AssistantConversationConfiguration : IEntityTypeConfiguratio
         builder.Property(c => c.LastArtifactsJson)
             .HasColumnType("jsonb");
 
+        builder.Property(c => c.SourcesJson)
+            .HasColumnType("jsonb")
+            .HasDefaultValueSql("'[]'::jsonb")
+            .IsRequired();
+
         builder.HasIndex(c => new { c.WorkspaceId, c.UserId, c.UpdatedAtUtc });
     }
 }

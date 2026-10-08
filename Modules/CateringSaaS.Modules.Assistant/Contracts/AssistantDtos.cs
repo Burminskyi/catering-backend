@@ -10,6 +10,7 @@ public sealed record ToolResult(
 [JsonDerivedType(typeof(MetricArtifact), "metric")]
 [JsonDerivedType(typeof(TableArtifact), "table")]
 [JsonDerivedType(typeof(OverviewArtifact), "overview")]
+[JsonDerivedType(typeof(KnowledgeSourcesArtifact), "knowledgeSources")]
 public abstract record AssistantArtifact;
 
 public sealed record MetricArtifact(
@@ -24,6 +25,17 @@ public sealed record TableArtifact(
 
 /// <summary>Detailed markdown for the right-hand Overview panel (not shown in chat).</summary>
 public sealed record OverviewArtifact(string Markdown) : AssistantArtifact;
+
+/// <summary>Document sources for RAG answers (right panel, no charts).</summary>
+public sealed record KnowledgeSourcesArtifact(
+    string Title,
+    IReadOnlyList<KnowledgeSourceItem> Sources) : AssistantArtifact;
+
+public sealed record KnowledgeSourceItem(
+    string DocumentTitle,
+    string FileName,
+    string Excerpt,
+    string? DownloadUrl = null);
 
 public sealed record ArtifactColumn(string Key, string Label);
 

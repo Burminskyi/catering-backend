@@ -47,7 +47,8 @@ public sealed record AssistantConversationSummary(
     Guid Id,
     string Title,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    IReadOnlyList<string> Sources);
 
 public sealed record AssistantConversationDetail(
     Guid Id,
@@ -116,6 +117,7 @@ public sealed class EfAssistantConversationStore : IAssistantConversationStore, 
         var artifactsJson = artifacts is { Count: > 0 }
             ? JsonSerializer.Serialize(artifacts, JsonOptions)
             : null;
+        var turnSources = ConversationSources.Detect(messages, artifacts);
         var userFallback = firstUserMessageForTitle ?? FindFirstUserText(persisted);
         var llmTitle = ConversationTitle.Normalize(generatedTitle);
 
@@ -137,7 +139,8 @@ public sealed class EfAssistantConversationStore : IAssistantConversationStore, 
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now,
                 MessagesJson = messagesJson,
-                LastArtifactsJson = artifactsJson
+                LastArtifactsJson = artifactsJson,
+                SourcesJson = ConversationSources.MergeJson(null, turnSources)
             };
             _db.Set<AssistantConversation>().Add(entity);
         }
@@ -145,6 +148,7 @@ public sealed class EfAssistantConversationStore : IAssistantConversationStore, 
         {
             entity.MessagesJson = messagesJson;
             entity.UpdatedAtUtc = now;
+            entity.SourcesJson = ConversationSources.MergeJson(entity.SourcesJson, turnSources);
             if (artifactsJson is not null)
             {
                 entity.LastArtifactsJson = artifactsJson;
@@ -170,12 +174,28 @@ public sealed class EfAssistantConversationStore : IAssistantConversationStore, 
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        return await _db.Set<AssistantConversation>()
+        var rows = await _db.Set<AssistantConversation>()
             .AsNoTracking()
             .Where(c => c.WorkspaceId == workspaceId && c.UserId == userId)
             .OrderByDescending(c => c.UpdatedAtUtc)
-            .Select(c => new AssistantConversationSummary(c.Id, c.Title, c.CreatedAtUtc, c.UpdatedAtUtc))
+            .Select(c => new { c.Id, c.Title, c.CreatedAtUtc, c.UpdatedAtUtc, c.SourcesJson, c.LastArtifactsJson })
             .ToListAsync(cancellationToken);
+
+        return rows.Select(c =>
+        {
+            var sources = ConversationSources.Parse(c.SourcesJson);
+            if (sources.Count == 0)
+            {
+                sources = ConversationSources.InferFromArtifactsJson(c.LastArtifactsJson);
+            }
+
+            return new AssistantConversationSummary(
+                c.Id,
+                c.Title,
+                c.CreatedAtUtc,
+                c.UpdatedAtUtc,
+                sources);
+        }).ToList();
     }
 
     public async Task<AssistantConversationDetail?> GetAsync(
