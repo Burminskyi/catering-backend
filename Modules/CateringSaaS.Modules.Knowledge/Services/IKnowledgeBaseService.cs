@@ -14,6 +14,7 @@ public sealed record KnowledgeDocumentDto(
     string Title,
     string OriginalFileName,
     string ContentType,
+    string? FileUrl,
     string Status,
     int ChunkCount,
     string? ErrorMessage,

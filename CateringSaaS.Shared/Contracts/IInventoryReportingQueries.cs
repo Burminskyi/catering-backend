@@ -44,7 +44,9 @@ public interface IInventoryReportingQueries
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<IReadOnlyList<IngredientConsumptionRow>> GetConsumptionByIngredientAsync(
         Guid workspaceId,
@@ -53,7 +55,9 @@ public interface IInventoryReportingQueries
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<IReadOnlyList<IngredientBalanceRow>> GetIngredientBalancesAsync(
         Guid workspaceId,
@@ -67,7 +71,9 @@ public interface IInventoryReportingQueries
         Guid? supplierId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 }
 
 public sealed record IngredientConsumptionRow(

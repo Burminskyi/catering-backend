@@ -12,7 +12,8 @@ public sealed record TodayOrderLine(
     Guid? DriverId,
     string Status,
     int Portions,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    DateOnly TargetDate);
 
 public sealed record TodayOperationsSnapshot(
     IReadOnlyList<OrderStatusCount> ByStatus,
@@ -61,6 +62,12 @@ public interface IOrderReportingQueries
         DateOnly targetDate,
         CancellationToken cancellationToken = default);
 
+    Task<TodayOperationsSnapshot> GetOperationsAsync(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ClientRevenueRow>> GetRevenueByClientAsync(
         Guid workspaceId,
         DateOnly dateFrom,
@@ -99,7 +106,8 @@ public interface IOrderReportingQueries
 
     Task<IReadOnlyList<ProductionDemandLine>> GetConfirmedDemandAsync(
         Guid workspaceId,
-        DateOnly targetDate,
+        DateOnly dateFrom,
+        DateOnly dateTo,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DriverEfficiencyRow>> GetDriverEfficiencyAsync(

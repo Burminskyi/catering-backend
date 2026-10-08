@@ -6,3 +6,11 @@
 - Multi-tenancy: Almost all database entities must have a `WorkspaceId`. NEVER query the database without considering the `WorkspaceId`. 
 - EF Core: Use the global `AppDbContext` in the `Shared/` project. Entities configuration should be done using `IEntityTypeConfiguration` inside the module's `Data/` folder.
 - Endpoint design: Favor Minimal APIs or REPR pattern (Request-Endpoint-Response). Avoid massive controllers. Create one file per endpoint (e.g., `CreateOrderEndpoint.cs`).
+
+# Assistant Tools (SmartCatering)
+- Date/period args are resolved ONLY via `AssistantPeriod` in `Modules/CateringSaaS.Modules.Assistant/Services/AssistantPeriod.cs`. Do not invent calendar math in tools or prompts.
+- Calendar/order tools: `AssistantPeriod.ForCalendar` + `AssistantPeriod.Schema(...)`. Rejects `lastHours` (orders are business dates without time of day).
+- Stock-movement tools (food cost, consumption, supplier spend): `AssistantPeriod.ForMovements`; pass `instantFromUtc`/`instantToUtcExclusive` when `period.IsInstant`, else optional shift `timeFrom`/`timeTo`.
+- Always pass explicit resolved `DateFrom`/`DateTo` into reporting — never rely on dashboard defaults (e.g. last 7 days).
+- Prefer one SQL range query per tool (`TargetDate`/`CreatedAt` between from and to). Never loop day-by-day with per-day DB calls. Group in memory when needed.
+- Wire new tools with `IClientTimeContext` and `AssistantPeriod.ParameterHint` in the tool Description.

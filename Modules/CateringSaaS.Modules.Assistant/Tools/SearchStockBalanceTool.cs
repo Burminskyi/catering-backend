@@ -79,6 +79,13 @@ public sealed class SearchStockBalanceTool : IAssistantTool
             new MetricArtifact("Matched ingredients", rows.Count.ToString())
         };
 
-        return new ToolResult(new { count = rows.Count, items = rows }, artifacts);
+        return new ToolResult(
+            ReportArtifactMapper.BuildRowsFact("Stock balance", [
+                new ArtifactColumn("name", "Ingredient"),
+                new ArtifactColumn("category", "Category"),
+                new ArtifactColumn("quantity", "Qty"),
+                new ArtifactColumn("unit", "Unit")
+            ], rows),
+            artifacts);
     }
 }

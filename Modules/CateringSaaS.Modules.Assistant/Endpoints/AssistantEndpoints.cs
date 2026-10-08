@@ -71,6 +71,13 @@ public static class AssistantEndpoints
 
                 switch (streamEvent)
                 {
+                    case AssistantStatusEvent status:
+                        await AssistantSseWriter.WriteAsync(
+                            response,
+                            "status",
+                            JsonSerializer.Serialize(new { stage = status.Stage }, AssistantSseWriter.JsonOptions),
+                            cancellationToken);
+                        break;
                     case AssistantTokenEvent token:
                         await AssistantSseWriter.WriteAsync(
                             response,
@@ -89,7 +96,9 @@ public static class AssistantEndpoints
                         await AssistantSseWriter.WriteAsync(
                             response,
                             "done",
-                            JsonSerializer.Serialize(new { conversationId = done.ConversationId }, AssistantSseWriter.JsonOptions),
+                            JsonSerializer.Serialize(
+                                new { conversationId = done.ConversationId, title = done.Title },
+                                AssistantSseWriter.JsonOptions),
                             cancellationToken);
                         break;
                 }
@@ -102,6 +111,17 @@ public static class AssistantEndpoints
         catch (AssistantServiceException ex)
         {
             await WriteFailureAsync(response, started, ex.StatusCode, ex.Message, ex.Code, cancellationToken);
+        }
+        catch (Exception ex) when (AssistantProviderFailures.IsRateLimited(ex))
+        {
+            logger.LogWarning(ex, "Groq API rate limit exceeded after retries.");
+            await WriteFailureAsync(
+                response,
+                started,
+                StatusCodes.Status429TooManyRequests,
+                "The assistant is busy right now (rate limit). Please wait about 20 seconds and try again.",
+                AssistantServiceException.RateLimitedCode,
+                cancellationToken);
         }
         catch (Exception ex) when (AssistantProviderFailures.IsUnreachable(ex))
         {

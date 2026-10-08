@@ -14,6 +14,7 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
     private readonly IDocumentParser _parser;
     private readonly ITextChunker _chunker;
     private readonly IEmbeddingService _embeddings;
+    private readonly IStorageService _storage;
     private readonly ILogger<KnowledgeBaseService> _logger;
 
     public KnowledgeBaseService(
@@ -21,12 +22,14 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         IDocumentParser parser,
         ITextChunker chunker,
         IEmbeddingService embeddings,
+        IStorageService storage,
         ILogger<KnowledgeBaseService> logger)
     {
         _dbContext = dbContext;
         _parser = parser;
         _chunker = chunker;
         _embeddings = embeddings;
+        _storage = storage;
         _logger = logger;
     }
 
@@ -63,15 +66,17 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
             working = owned;
         }
 
+        var resolvedContentType = string.IsNullOrWhiteSpace(contentType)
+            ? GuessContentType(fileName)
+            : contentType!;
+
         var document = new KnowledgeDocument
         {
             Id = Guid.NewGuid(),
             WorkspaceId = workspaceId,
             Title = Path.GetFileNameWithoutExtension(fileName).Trim(),
             OriginalFileName = Path.GetFileName(fileName),
-            ContentType = string.IsNullOrWhiteSpace(contentType)
-                ? GuessContentType(fileName)
-                : contentType!,
+            ContentType = resolvedContentType,
             Status = KnowledgeDocumentStatus.Processing,
             EmbeddingModel = _embeddings.ModelName,
             EmbeddingDimensions = _embeddings.Dimensions,
@@ -85,6 +90,14 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         }
 
         await ReplaceExistingFileAsync(workspaceId, document.OriginalFileName, cancellationToken);
+
+        working.Position = 0;
+        document.FileUrl = await _storage.UploadFileAsync(
+            working,
+            document.OriginalFileName,
+            resolvedContentType,
+            workspaceId,
+            cancellationToken);
 
         await _dbContext.Set<KnowledgeDocument>().AddAsync(document, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -193,19 +206,40 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
             .AsNoTracking()
             .Where(d => d.WorkspaceId == workspaceId)
             .OrderByDescending(d => d.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        return items
             .Select(d => new KnowledgeDocumentDto(
                 d.Id,
                 d.Title,
                 d.OriginalFileName,
                 d.ContentType,
+                ResolveDownloadUrl(d.FileUrl),
                 d.Status.ToString(),
                 d.ChunkCount,
                 d.ErrorMessage,
                 d.CreatedAtUtc,
                 d.ProcessedAtUtc))
-            .ToListAsync(cancellationToken);
+            .ToList();
+    }
 
-        return items;
+    private string? ResolveDownloadUrl(string? fileUrl)
+    {
+        if (string.IsNullOrWhiteSpace(fileUrl))
+        {
+            return null;
+        }
+
+        try
+        {
+            var url = _storage.GetDownloadUrl(fileUrl);
+            return string.IsNullOrWhiteSpace(url) ? null : url;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not build download URL for knowledge file {FileUrl}", fileUrl);
+            return null;
+        }
     }
 
     public async Task<bool> DeleteDocumentAsync(
@@ -224,6 +258,21 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         if (document is null)
         {
             return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.FileUrl))
+        {
+            try
+            {
+                await _storage.DeleteFileAsync(document.FileUrl, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "R2 delete failed for document {DocumentId}; continuing with DB delete",
+                    document.Id);
+            }
         }
 
         _dbContext.Set<KnowledgeDocument>().Remove(document);
@@ -286,6 +335,26 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         if (existing.Count == 0)
         {
             return;
+        }
+
+        foreach (var doc in existing)
+        {
+            if (string.IsNullOrWhiteSpace(doc.FileUrl))
+            {
+                continue;
+            }
+
+            try
+            {
+                await _storage.DeleteFileAsync(doc.FileUrl, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "R2 delete failed while replacing document {DocumentId}",
+                    doc.Id);
+            }
         }
 
         _dbContext.Set<KnowledgeDocument>().RemoveRange(existing);

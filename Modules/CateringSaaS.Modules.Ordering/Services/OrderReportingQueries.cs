@@ -14,21 +14,34 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         _dbContext = dbContext;
     }
 
-    public async Task<TodayOperationsSnapshot> GetTodayOperationsAsync(
+    public Task<TodayOperationsSnapshot> GetTodayOperationsAsync(
         Guid workspaceId,
         DateOnly targetDate,
+        CancellationToken cancellationToken = default) =>
+        GetOperationsAsync(workspaceId, targetDate, targetDate, cancellationToken);
+
+    public async Task<TodayOperationsSnapshot> GetOperationsAsync(
+        Guid workspaceId,
+        DateOnly dateFrom,
+        DateOnly dateTo,
         CancellationToken cancellationToken = default)
     {
-        // Project scalars in SQL (no full OrderItem graph). One business day is small.
+        if (dateFrom > dateTo)
+        {
+            (dateFrom, dateTo) = (dateTo, dateFrom);
+        }
+
+        // One range scan. Daily totals are grouped in memory from this projection.
         var orders = await _dbContext.Set<Order>()
             .AsNoTracking()
-            .Where(o => o.WorkspaceId == workspaceId && o.TargetDate == targetDate)
+            .Where(o => o.WorkspaceId == workspaceId && o.TargetDate >= dateFrom && o.TargetDate <= dateTo)
             .Select(o => new
             {
                 o.Id,
                 o.ClientCompanyId,
                 o.DriverId,
                 o.Status,
+                o.TargetDate,
                 o.TotalAmount,
                 Portions = o.Items.Sum(i => (int?)i.Quantity) ?? 0
             })
@@ -53,7 +66,8 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
                 o.DriverId,
                 o.Status.ToString(),
                 o.Portions,
-                o.TotalAmount))
+                o.TotalAmount,
+                o.TargetDate))
             .ToList();
 
         var unassignedReady = orders.Count(o =>
@@ -313,12 +327,13 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
         Guid? clientCompanyId,
         CancellationToken cancellationToken = default)
     {
+        // PostgreSQL has no max(uuid) — pick any DishId via FirstOrDefault, not Max.
         var rows = await ActiveOrderItems(workspaceId, dateFrom, dateTo, clientCompanyId)
             .GroupBy(i => i.MenuItemId)
             .Select(g => new
             {
                 MenuItemId = g.Key,
-                DishId = g.Max(i => i.DishId),
+                DishId = g.Select(i => i.DishId).FirstOrDefault(),
                 DishName = g.Max(i => i.DishName),
                 Portions = g.Sum(i => i.Quantity)
             })
@@ -337,20 +352,28 @@ public sealed class OrderReportingQueries : IOrderReportingQueries
 
     public async Task<IReadOnlyList<ProductionDemandLine>> GetConfirmedDemandAsync(
         Guid workspaceId,
-        DateOnly targetDate,
+        DateOnly dateFrom,
+        DateOnly dateTo,
         CancellationToken cancellationToken = default)
     {
+        if (dateFrom > dateTo)
+        {
+            (dateFrom, dateTo) = (dateTo, dateFrom);
+        }
+
+        // PostgreSQL has no max(uuid) — pick any DishId via FirstOrDefault, not Max.
         var rows = await _dbContext.Set<OrderItem>()
             .AsNoTracking()
             .Where(i =>
                 i.WorkspaceId == workspaceId
-                && i.Order.TargetDate == targetDate
+                && i.Order.TargetDate >= dateFrom
+                && i.Order.TargetDate <= dateTo
                 && i.Order.Status == OrderStatus.Confirmed)
             .GroupBy(i => i.MenuItemId)
             .Select(g => new
             {
                 MenuItemId = g.Key,
-                DishId = g.Max(i => i.DishId),
+                DishId = g.Select(i => i.DishId).FirstOrDefault(),
                 DishName = g.Max(i => i.DishName),
                 Portions = g.Sum(i => i.Quantity)
             })

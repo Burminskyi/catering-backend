@@ -2,54 +2,41 @@ using System.Text.Json.Nodes;
 using CateringSaaS.Modules.Assistant.Contracts;
 using CateringSaaS.Modules.Assistant.Services;
 using CateringSaaS.Modules.Reporting.Services;
+using CateringSaaS.Shared.MultiTenancy;
 
 namespace CateringSaaS.Modules.Assistant.Tools;
 
 public sealed class GetDriverEfficiencyTool : IAssistantTool
 {
     private readonly IReportingService _reporting;
+    private readonly IClientTimeContext _clock;
 
-    public GetDriverEfficiencyTool(IReportingService reporting)
+    public GetDriverEfficiencyTool(IReportingService reporting, IClientTimeContext clock)
     {
         _reporting = reporting;
+        _clock = clock;
     }
 
     public string Name => "get_driver_efficiency";
 
     public string Description =>
-        "Driver fulfillment and efficiency: delivered orders, portions, and revenue per driver. " +
-        "Optional driverId filter. dateFrom/dateTo are ISO yyyy-MM-dd.";
+        "Driver fulfillment: delivered orders, portions, and revenue per driver. Optional driverId. " +
+        AssistantPeriod.ParameterHint;
 
-    public JsonObject ParametersSchema { get; } = new()
-    {
-        ["type"] = "object",
-        ["properties"] = new JsonObject
+    public JsonObject ParametersSchema { get; } = AssistantPeriod.Schema(
+        ("driverId", new JsonObject
         {
-            ["dateFrom"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["description"] = "Range start ISO date (yyyy-MM-dd)."
-            },
-            ["dateTo"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["description"] = "Range end ISO date (yyyy-MM-dd)."
-            },
-            ["driverId"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["description"] = "Optional driver user GUID."
-            }
-        }
-    };
+            ["type"] = "string",
+            ["description"] = "Optional driver user GUID."
+        }));
 
-    public async Task<ToolResult> ExecuteAsync(JsonObject args, AssistantScope scope, CancellationToken ct)
+    public Task<ToolResult> ExecuteAsync(JsonObject args, AssistantScope scope, CancellationToken ct)
     {
         _ = scope;
-        var dateFrom = ReportArtifactMapper.ReadDateOnly(args, "dateFrom");
-        var dateTo = ReportArtifactMapper.ReadDateOnly(args, "dateTo");
         var driverId = ReportArtifactMapper.ReadGuid(args, "driverId");
-        var report = await _reporting.GetDriverEfficiencyAsync(dateFrom, dateTo, driverId, ct);
-        return ReportArtifactMapper.FromReport(report);
+        return AssistantPeriod.ForCalendar(
+            args,
+            _clock,
+            period => _reporting.GetDriverEfficiencyAsync(period.DateFrom, period.DateTo, driverId, ct));
     }
 }

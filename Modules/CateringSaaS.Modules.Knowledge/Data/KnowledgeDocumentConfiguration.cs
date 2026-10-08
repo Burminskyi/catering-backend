@@ -24,6 +24,9 @@ public sealed class KnowledgeDocumentConfiguration : IEntityTypeConfiguration<Kn
             .HasMaxLength(120)
             .IsRequired();
 
+        builder.Property(d => d.FileUrl)
+            .HasMaxLength(1000);
+
         builder.Property(d => d.Status)
             .HasConversion<string>()
             .HasMaxLength(32)

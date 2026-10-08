@@ -11,6 +11,11 @@ public interface IReportingService
         DateOnly? targetDate,
         CancellationToken cancellationToken = default);
 
+    Task<ReportResponse> GetOperationsPulseAsync(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default);
+
     Task<ReportResponse> GetRevenueByClientAsync(
         DateOnly? dateFrom,
         DateOnly? dateTo,
@@ -23,7 +28,9 @@ public interface IReportingService
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<ReportResponse> GetDeliveryAuditAsync(
         DateOnly? dateFrom,
@@ -50,19 +57,25 @@ public interface IReportingService
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<ReportResponse> GetFoodCostAsync(
         DateOnly? dateFrom,
         DateOnly? dateTo,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<ReportResponse> GetShortageForecastAsync(
         DateOnly? targetDate,
         bool? onlyDeficits,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        DateOnly? dateFrom = null,
+        DateOnly? dateTo = null);
 
     Task<ReportResponse> GetDriverEfficiencyAsync(
         DateOnly? dateFrom,
@@ -76,7 +89,9 @@ public interface IReportingService
         Guid? supplierId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null);
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null);
 
     Task<ReportResponse> GetCancellationsAsync(
         DateOnly? dateFrom,
@@ -116,14 +131,27 @@ public sealed class ReportingService : IReportingService
         _ingredients = ingredients;
     }
 
-    public async Task<ReportResponse> GetTodayPulseAsync(
+    public Task<ReportResponse> GetTodayPulseAsync(
         DateOnly? targetDate,
         CancellationToken cancellationToken = default)
     {
-        var workspaceId = RequireWorkspace();
         var day = targetDate ?? _clock.LocalToday;
+        return GetOperationsPulseAsync(day, day, cancellationToken);
+    }
 
-        var snapshot = await _orders.GetTodayOperationsAsync(workspaceId, day, cancellationToken);
+    public async Task<ReportResponse> GetOperationsPulseAsync(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default)
+    {
+        if (dateFrom > dateTo)
+        {
+            (dateFrom, dateTo) = (dateTo, dateFrom);
+        }
+
+        var workspaceId = RequireWorkspace();
+        var single = dateFrom == dateTo;
+        var snapshot = await _orders.GetOperationsAsync(workspaceId, dateFrom, dateTo, cancellationToken);
         var critical = await _inventory.GetCriticalStockAsync(workspaceId, cancellationToken);
 
         var clientIds = snapshot.Orders.Select(o => o.ClientCompanyId);
@@ -141,18 +169,18 @@ public sealed class ReportingService : IReportingService
 
         var metrics = new List<ReportMetric>
         {
-            ReportComposer.Metric("ordersCount", ReportLabels.OrdersToday, active.Count, active.Count.ToString(),
+            ReportComposer.Metric("ordersCount", single ? ReportLabels.OrdersToday : ReportLabels.Orders, active.Count, active.Count.ToString(),
                 ReportLabels.PendingConfirmation(pending), pending.ToString()),
-            ReportComposer.Metric("revenue", ReportLabels.RevenueToday, revenue, ReportComposer.Money(revenue),
+            ReportComposer.Metric("revenue", single ? ReportLabels.RevenueToday : ReportLabels.Revenue, revenue, ReportComposer.Money(revenue),
                 ReportLabels.ActiveOrders(active.Count)),
-            ReportComposer.Metric("portions", ReportLabels.PortionsToday, portions, portions.ToString(),
+            ReportComposer.Metric("portions", single ? ReportLabels.PortionsToday : ReportLabels.Portions, portions, portions.ToString(),
                 ReportLabels.ReadyCount(snapshot.ReadyPortions)),
             ReportComposer.Metric("assignedReadyCount", ReportLabels.AssignedForDelivery, snapshot.AssignedReadyCount,
                 snapshot.AssignedReadyCount.ToString()),
             ReportComposer.Metric("unassignedReadyCount", ReportLabels.UnassignedReadyOrders, snapshot.UnassignedReadyCount,
                 snapshot.UnassignedReadyCount.ToString()),
             ReportComposer.Metric("criticalStockCount", ReportLabels.CriticalStockItems, critical.Count,
-                critical.Count.ToString()),
+                critical.Count.ToString(), single ? null : "current snapshot"),
             ReportComposer.Metric("readyPortions", ReportLabels.ReadyPortions, snapshot.ReadyPortions,
                 snapshot.ReadyPortions.ToString()),
             ReportComposer.Metric("inProductionPortions", ReportLabels.InProductionPortions, snapshot.InProductionPortions,
@@ -181,6 +209,7 @@ public sealed class ReportingService : IReportingService
                 : null;
             return ReportComposer.Row(
                 ("id", o.OrderId),
+                ("date", o.TargetDate.ToString("yyyy-MM-dd")),
                 ("clientName", client?.Name ?? o.ClientCompanyId.ToString()),
                 ("portions", o.Portions),
                 ("status", o.Status),
@@ -204,40 +233,90 @@ public sealed class ReportingService : IReportingService
                 ("category", s.Category));
         }).ToList();
 
-        var tables = new List<ReportTable>
+        var byDay = new List<IReadOnlyDictionary<string, object?>>();
+        if (!single)
         {
-            new(
-                "todayOrders",
-                ReportLabels.TodaysOrders,
-                [
-                    new ReportColumn("clientName", ReportLabels.Client),
-                    new ReportColumn("portions", ReportLabels.Portions, "number"),
-                    new ReportColumn("status", ReportLabels.Status, "status"),
-                    new ReportColumn("driverName", ReportLabels.Driver)
-                ],
-                orderRows),
-            new(
-                "criticalStock",
-                ReportLabels.CriticalStock,
-                [
-                    new ReportColumn("name", ReportLabels.Ingredient),
-                    new ReportColumn("quantity", ReportLabels.OnHand, "number"),
-                    new ReportColumn("unit", ReportLabels.Unit),
-                    new ReportColumn("threshold", ReportLabels.Min, "number")
-                ],
-                stockRows)
-        };
+            var activeByDay = snapshot.Orders
+                .Where(o => o.Status != "Cancelled")
+                .GroupBy(o => o.TargetDate)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            for (var day = dateFrom; day <= dateTo; day = day.AddDays(1))
+            {
+                activeByDay.TryGetValue(day, out var lines);
+                byDay.Add(new Dictionary<string, object?>
+                {
+                    ["date"] = day.ToString("yyyy-MM-dd"),
+                    ["orders"] = lines?.Count ?? 0,
+                    ["revenue"] = lines?.Sum(o => o.TotalAmount) ?? 0m,
+                    ["portions"] = lines?.Sum(o => o.Portions) ?? 0
+                });
+            }
+        }
 
-        var series = new List<ReportSeries>
+        var orderColumns = new List<ReportColumn>();
+        if (!single)
         {
-            new(
-                "ordersByStatus",
-                ReportLabels.OrdersByStatus,
-                "bar",
-                snapshot.ByStatus.Select(s => new ReportSeriesPoint(s.Status, s.OrderCount)).ToList())
-        };
+            orderColumns.Add(new ReportColumn("date", ReportLabels.Date));
+        }
 
-        return new ReportResponse("todayPulse", ReportTitles.TodayPulse, day, day, metrics, tables, series);
+        orderColumns.Add(new ReportColumn("clientName", ReportLabels.Client));
+        orderColumns.Add(new ReportColumn("portions", ReportLabels.Portions, "number"));
+        orderColumns.Add(new ReportColumn("status", ReportLabels.Status, "status"));
+        orderColumns.Add(new ReportColumn("driverName", ReportLabels.Driver));
+
+        var tables = new List<ReportTable>();
+        if (!single)
+        {
+            tables.Add(new ReportTable(
+                "pulseByDay",
+                $"{dateFrom:yyyy-MM-dd} – {dateTo:yyyy-MM-dd}",
+                [
+                    new ReportColumn("date", ReportLabels.Date),
+                    new ReportColumn("orders", ReportLabels.Orders, "number"),
+                    new ReportColumn("revenue", ReportLabels.Revenue, "number"),
+                    new ReportColumn("portions", ReportLabels.Portions, "number")
+                ],
+                byDay));
+        }
+
+        tables.Add(new ReportTable(
+            single ? "todayOrders" : "orders",
+            single ? ReportLabels.TodaysOrders : ReportLabels.Orders,
+            orderColumns,
+            orderRows));
+        tables.Add(new ReportTable(
+            "criticalStock",
+            ReportLabels.CriticalStock,
+            [
+                new ReportColumn("name", ReportLabels.Ingredient),
+                new ReportColumn("quantity", ReportLabels.OnHand, "number"),
+                new ReportColumn("unit", ReportLabels.Unit),
+                new ReportColumn("threshold", ReportLabels.Min, "number")
+            ],
+            stockRows));
+
+        var series = single
+            ? new List<ReportSeries>
+            {
+                new(
+                    "ordersByStatus",
+                    ReportLabels.OrdersByStatus,
+                    "bar",
+                    snapshot.ByStatus.Select(s => new ReportSeriesPoint(s.Status, s.OrderCount)).ToList())
+            }
+            : new List<ReportSeries>
+            {
+                new(
+                    "ordersByDay",
+                    ReportLabels.Orders,
+                    "bar",
+                    byDay.Select(row => new ReportSeriesPoint(
+                        Convert.ToString(row["date"]) ?? "",
+                        Convert.ToDecimal(row["orders"] ?? 0m))).ToList())
+            };
+
+        var title = single ? ReportTitles.TodayPulse : $"{dateFrom:yyyy-MM-dd} – {dateTo:yyyy-MM-dd}";
+        return new ReportResponse(single ? "todayPulse" : "pulseRange", title, dateFrom, dateTo, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetRevenueByClientAsync(
@@ -312,12 +391,14 @@ public sealed class ReportingService : IReportingService
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
         var snapshot = await _inventory.GetStockMovementsAsync(
-            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo);
+            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
 
         var usedShare = snapshot.PurchaseQuantity > 0
             ? Math.Round(100m * snapshot.ConsumeQuantity / snapshot.PurchaseQuantity, 1)
@@ -603,7 +684,9 @@ public sealed class ReportingService : IReportingService
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
@@ -618,7 +701,7 @@ public sealed class ReportingService : IReportingService
         }
 
         var actual = await _inventory.GetConsumptionByIngredientAsync(
-            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo);
+            workspaceId, from, to, ingredientId, cancellationToken, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
         var actualById = actual.ToDictionary(r => r.IngredientId);
 
         var ids = expected.Keys.Concat(actualById.Keys).Distinct().ToArray();
@@ -700,12 +783,14 @@ public sealed class ReportingService : IReportingService
         DateOnly? dateTo,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
         var stock = await _inventory.GetStockMovementsAsync(
-            workspaceId, from, to, null, cancellationToken, timeFrom, timeTo);
+            workspaceId, from, to, null, cancellationToken, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
         var revenueRows = await _orders.GetRevenueByClientAsync(workspaceId, from, to, null, cancellationToken);
         var revenue = revenueRows.Sum(r => r.Revenue);
         var foodCost = revenue > 0 ? Math.Round(100m * stock.ConsumeCost / revenue, 1) : 0m;
@@ -764,11 +849,19 @@ public sealed class ReportingService : IReportingService
     public async Task<ReportResponse> GetShortageForecastAsync(
         DateOnly? targetDate,
         bool? onlyDeficits,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        DateOnly? dateFrom = null,
+        DateOnly? dateTo = null)
     {
         var workspaceId = RequireWorkspace();
-        var day = targetDate ?? _clock.LocalToday;
-        var demand = await _orders.GetConfirmedDemandAsync(workspaceId, day, cancellationToken);
+        var from = dateFrom ?? targetDate ?? _clock.LocalToday;
+        var to = dateTo ?? from;
+        if (from > to)
+        {
+            (from, to) = (to, from);
+        }
+
+        var demand = await _orders.GetConfirmedDemandAsync(workspaceId, from, to, cancellationToken);
         var expected = await ExpandExpectedUsageAsync(workspaceId, demand, cancellationToken);
         var balances = (await _inventory.GetIngredientBalancesAsync(
             workspaceId, expected.Keys, cancellationToken))
@@ -838,7 +931,7 @@ public sealed class ReportingService : IReportingService
                 rows)
         };
 
-        return new ReportResponse("shortageForecast", ReportTitles.ShortageForecast, day, day, metrics, tables, series);
+        return new ReportResponse("shortageForecast", ReportTitles.ShortageForecast, from, to, metrics, tables, series);
     }
 
     public async Task<ReportResponse> GetDriverEfficiencyAsync(
@@ -914,12 +1007,14 @@ public sealed class ReportingService : IReportingService
         Guid? supplierId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
         var workspaceId = RequireWorkspace();
         var (from, to) = ResolveRange(dateFrom, dateTo);
         var rows = await _inventory.GetSupplierSpendAsync(
-            workspaceId, from, to, supplierId, cancellationToken, timeFrom, timeTo);
+            workspaceId, from, to, supplierId, cancellationToken, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
         var total = rows.Sum(r => r.Spend);
 
         var metrics = new List<ReportMetric>

@@ -26,6 +26,7 @@ public static class KnowledgeModuleExtensions
         ModuleConfigurationRegistry.Register(typeof(KnowledgeDocumentConfiguration).Assembly);
 
         services.Configure<HuggingFaceOptions>(configuration.GetSection(HuggingFaceOptions.SectionName));
+        services.Configure<S3Options>(configuration.GetSection(S3Options.SectionName));
 
         services.AddHttpClient<IEmbeddingService, HuggingFaceEmbeddingService>(client =>
         {
@@ -34,6 +35,7 @@ public static class KnowledgeModuleExtensions
         })
         .AddPolicyHandler(TransientHttpRetryPolicy.Create());
 
+        services.AddSingleton<IStorageService, S3StorageService>();
         services.AddSingleton<ITextChunker, TextChunker>();
         services.AddScoped<IDocumentParser, DocumentParser>();
         services.AddScoped<KnowledgeBaseService>();

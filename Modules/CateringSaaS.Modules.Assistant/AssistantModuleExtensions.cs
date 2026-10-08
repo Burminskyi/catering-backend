@@ -1,9 +1,11 @@
 using CateringSaaS.Modules.Assistant.Configuration;
 using CateringSaaS.Modules.Assistant.Contracts;
+using CateringSaaS.Modules.Assistant.Data;
 using CateringSaaS.Modules.Assistant.Endpoints;
 using CateringSaaS.Modules.Assistant.Http;
 using CateringSaaS.Modules.Assistant.Services;
 using CateringSaaS.Modules.Assistant.Tools;
+using CateringSaaS.Shared.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +19,8 @@ public static class AssistantModuleExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        ModuleConfigurationRegistry.Register(typeof(AssistantConversationConfiguration).Assembly);
+
         services.Configure<GroqOptions>(configuration.GetSection(GroqOptions.SectionName));
 
         services.AddHttpClient(GroqOptions.HttpClientName, client =>
@@ -26,7 +30,9 @@ public static class AssistantModuleExtensions
         })
         .AddPolicyHandler(TransientHttpRetryPolicy.Create());
 
-        services.AddSingleton<IAssistantConversationStore, InMemoryAssistantConversationStore>();
+        services.AddScoped<EfAssistantConversationStore>();
+        services.AddScoped<IAssistantConversationStore>(sp => sp.GetRequiredService<EfAssistantConversationStore>());
+        services.AddScoped<IAssistantConversationHistory>(sp => sp.GetRequiredService<EfAssistantConversationStore>());
         services.AddScoped<IAssistantChatService, AssistantChatService>();
 
         services.AddScoped<IAssistantTool, ResolveClientTool>();
@@ -56,6 +62,9 @@ public static class AssistantModuleExtensions
 
         group.MapChatEndpoint();
         group.MapChatStreamEndpoint();
+        group.MapListAssistantConversationsEndpoint();
+        group.MapGetAssistantConversationEndpoint();
+        group.MapDeleteAssistantConversationEndpoint();
 
         return app;
     }

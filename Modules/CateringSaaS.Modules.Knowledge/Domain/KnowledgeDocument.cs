@@ -12,6 +12,9 @@ public class KnowledgeDocument
 
     public required string ContentType { get; set; }
 
+    /// <summary>R2/S3 object key (or URL) for the original uploaded file.</summary>
+    public string? FileUrl { get; set; }
+
     public KnowledgeDocumentStatus Status { get; set; } = KnowledgeDocumentStatus.Pending;
 
     public string? ErrorMessage { get; set; }

@@ -63,9 +63,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
-        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
 
         var query = _dbContext.Set<InventoryMovement>()
             .AsNoTracking()
@@ -134,9 +136,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         Guid? ingredientId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
-        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
         var query = _dbContext.Set<InventoryMovement>()
             .AsNoTracking()
             .Where(m =>
@@ -219,9 +223,11 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         Guid? supplierId,
         CancellationToken cancellationToken = default,
         TimeOnly? timeFrom = null,
-        TimeOnly? timeTo = null)
+        TimeOnly? timeTo = null,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
-        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo);
+        var (fromUtc, toUtcExclusive) = UtcBounds(dateFrom, dateTo, timeFrom, timeTo, instantFromUtc, instantToUtcExclusive);
         var query = _dbContext.Set<StockBatch>()
             .AsNoTracking()
             .Where(b =>
@@ -251,8 +257,15 @@ public sealed class InventoryReportingQueries : IInventoryReportingQueries
         DateOnly dateFrom,
         DateOnly dateTo,
         TimeOnly? timeFrom,
-        TimeOnly? timeTo)
+        TimeOnly? timeTo,
+        DateTime? instantFromUtc = null,
+        DateTime? instantToUtcExclusive = null)
     {
+        if (instantFromUtc is DateTime instantFrom && instantToUtcExclusive is DateTime instantTo && instantTo > instantFrom)
+        {
+            return (DateTime.SpecifyKind(instantFrom, DateTimeKind.Utc), DateTime.SpecifyKind(instantTo, DateTimeKind.Utc));
+        }
+
         var fromUtc = _clock.ToUtc(dateFrom, timeFrom ?? TimeOnly.MinValue);
         var toUtcExclusive = timeTo is TimeOnly end
             ? _clock.ToUtc(dateTo, end)

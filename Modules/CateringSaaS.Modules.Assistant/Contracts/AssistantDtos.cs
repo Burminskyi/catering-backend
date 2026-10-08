@@ -9,6 +9,7 @@ public sealed record ToolResult(
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(MetricArtifact), "metric")]
 [JsonDerivedType(typeof(TableArtifact), "table")]
+[JsonDerivedType(typeof(OverviewArtifact), "overview")]
 public abstract record AssistantArtifact;
 
 public sealed record MetricArtifact(
@@ -21,6 +22,9 @@ public sealed record TableArtifact(
     IReadOnlyList<ArtifactColumn> Columns,
     IReadOnlyList<Dictionary<string, object?>> Rows) : AssistantArtifact;
 
+/// <summary>Detailed markdown for the right-hand Overview panel (not shown in chat).</summary>
+public sealed record OverviewArtifact(string Markdown) : AssistantArtifact;
+
 public sealed record ArtifactColumn(string Key, string Label);
 
 public sealed record AssistantChatRequest(
@@ -30,12 +34,16 @@ public sealed record AssistantChatRequest(
 public sealed record AssistantChatResponse(
     Guid ConversationId,
     string Text,
-    IReadOnlyList<AssistantArtifact> Artifacts);
+    IReadOnlyList<AssistantArtifact> Artifacts,
+    string? Title = null);
 
 public abstract record AssistantStreamEvent;
+
+/// <summary>Live pipeline stage for the chat UI (thinking, querying, analyzing, finalizing).</summary>
+public sealed record AssistantStatusEvent(string Stage) : AssistantStreamEvent;
 
 public sealed record AssistantTokenEvent(string Text) : AssistantStreamEvent;
 
 public sealed record AssistantArtifactsEvent(IReadOnlyList<AssistantArtifact> Artifacts) : AssistantStreamEvent;
 
-public sealed record AssistantDoneEvent(Guid ConversationId) : AssistantStreamEvent;
+public sealed record AssistantDoneEvent(Guid ConversationId, string? Title = null) : AssistantStreamEvent;

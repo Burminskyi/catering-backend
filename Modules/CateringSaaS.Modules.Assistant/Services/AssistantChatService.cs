@@ -29,19 +29,22 @@ public interface IAssistantChatService
 
 public sealed class AssistantChatService : IAssistantChatService
 {
-    private const int MaxToolTurns = 4;
-    private const int MaxHistoryMessages = 12;
+    private const int MaxToolTurns = 3;
+    private const int MaxHistoryMessages = 10;
 
     /// <summary>Stable prefix for Groq prompt caching. Do not interpolate clocks or tenant data.</summary>
     private const string StaticSystemPrompt =
         """
-        You are the operational AI assistant for a multi-tenant catering ERP (mise.).
+        You are the operational AI assistant for a multi-tenant catering ERP (SmartCatering).
         A following system message states the client's local date, time, and timezone, plus server UTC.
-        When the user mentions relative dates (yesterday, last Friday, прошлую пятницу, wczoraj, this week, last 10 days),
-        convert them to absolute ISO dates (yyyy-MM-dd) using the client local calendar date, not UTC.
-        dateFrom and dateTo are local calendar dates.
-        For stock, food-cost, consumption, and supplier tools, a clock window such as 12:00-15:00 must be passed as timeFrom and timeTo (HH:mm, 24-hour, client local).
-        Order, delivery, revenue, and pulse tools store a business date (TargetDate) only. For those, use the local calendar day and do not invent hourly totals.
+        Do not calculate calendar dates yourself. Pass a period argument and let the server resolve it:
+        preset (today, yesterday, this_week, last_week, next_week, this_month, last_month, next_month, this_year, last_year, next_year),
+        lastDays (last 3 days → 3, includes today), lastHours (last 3 hours → 3), or explicit date / dateFrom+dateTo.
+        Weeks start on Monday. this week/month/year ends today. last week/month/year is the full previous period.
+        Order tools use a business date and cannot answer lastHours. Stock-movement tools can.
+        A clock shift such as 12:00-15:00 is timeFrom/timeTo, separate from lastHours.
+        Critical stock and current balances are a snapshot, not a history.
+        State the period field returned by the tool. Do not name a different window.
         Language rules (mandatory):
         - Reply entirely in the language of the user's latest message (Ukrainian, Russian, Polish, or English).
         - A following system message states the detected reply language — obey it even if the UI locale differs.
@@ -50,9 +53,27 @@ public sealed class AssistantChatService : IAssistantChatService
         - Chart/table chrome (titles, column headers, legends) is localized by the server from the reply language; do not invent English labels in chat when the user wrote in another language.
         Tool names and parameter names stay in English. Do not invent data — call tools.
         Never ask for or accept a workspaceId; tenancy is enforced by the server from the JWT.
-        Prefer concise answers and highlight key metrics from tool results.
-        When tools return artifacts (tables/charts), keep the chat reply short: 3–6 bullets or a brief paragraph.
-        Do not paste large markdown tables into chat — the UI already shows those as live artifacts.
+        Tool discipline (mandatory):
+        - Call the minimum tools needed (usually one pulse/report tool).
+        - Never call the same tool twice with the same arguments in one turn chain.
+        - After tool results arrive, answer immediately — do not re-fetch the same data.
+        - Obey each tool payload field answerFrom. State only numbers present in metrics, aggregates, highlights, or rows.
+        - If a table has complete=false, do not paste a markdown table of rows and do not describe rows that are not in highlights. Say that the on-screen table lists all rowCount rows.
+        - If complete=true, rows are exhaustive and may be cited.
+        Response layout (mandatory when tools returned metrics/tables or you produce a multi-section report):
+        Write these sections with markers on their own lines:
+        <<<TITLE>>>
+        One short workspace title in the reply language: topic + resolved period from the tool period field.
+        Example (ru): Выручка по клиентам за период с 2026-09-09 по 2026-10-08
+        Example (en): Client revenue for 2026-09-09 – 2026-10-08
+        Rules: noun phrase, not a question, not a copy of the user message, no markdown, max ~90 characters.
+        <<<CHAT>>>
+        Start with a markdown H2 heading in the reply language (## Summary / ## Итог / ## Підсумок / ## Podsumowanie).
+        Then 1–2 short sentences that name the resolved period from the tool period field (a single day or a from–to range) and frame the result (e.g. for this period we have…).
+        After that, 2–6 bullets with the key numbers in bold. Do not dump numbers without saying which period they cover. No markdown tables. End by pointing to the results panel on the right (tables and charts) for details — never use the word artifacts in user-visible text (say results panel / панель с данными / panel wyników / панель результатів as appropriate).
+        <<<OVERVIEW>>>
+        Intent brief only — how you understood the request. 2–4 short sentences or bullets covering: what the user asked for, the resolved period (use the tool period field), and which data that implies (e.g. orders, revenue, kitchen readiness, critical stock). Do NOT repeat the numerical summary. Do NOT write a Summary/Итог heading here. Do NOT paste markdown tables here — charts and tables render separately below.
+        If there is nothing to visualize (no tools / no report), omit the markers and write a normal short reply only.
         Use bold for key numbers. Avoid decorative ASCII separators.
         If a knowledge search returns no relevant documents, say so and do not fabricate policy or recipe text.
         """;
@@ -88,29 +109,47 @@ public sealed class AssistantChatService : IAssistantChatService
         var replyLanguage = AssistantLanguage.Detect(request.Message);
         using var _ = new CultureScope(replyLanguage);
 
-        var (key, conversationId, stored) = PrepareConversation(request, scope);
+        var (key, conversationId, userMessage) = PrepareConversation(request, scope);
+        var stored = await LoadConversationAsync(key, userMessage, cancellationToken);
         var client = CreateChatClient();
-        var chatOptions = BuildChatOptions();
         var collectedArtifacts = new List<AssistantArtifact>();
+        var toolCache = new Dictionary<string, ToolResult>(StringComparer.Ordinal);
         var finalText = string.Empty;
+        var allowTools = true;
 
         for (var turn = 0; turn < MaxToolTurns; turn++)
         {
-            var window = BuildModelWindow(stored, replyLanguage);
-            ChatCompletion completion = await CompleteChatAsync(client, window, chatOptions, cancellationToken);
+            var window = BuildModelWindow(stored, replyLanguage, forceAnswer: !allowTools);
+            ChatCompletion completion = await CompleteChatAsync(
+                client,
+                window,
+                BuildChatOptions(allowTools),
+                cancellationToken);
             stored.Add(new AssistantChatMessage(completion));
 
-            if (completion.FinishReason == ChatFinishReason.ToolCalls && completion.ToolCalls.Count > 0)
+            if (allowTools
+                && completion.FinishReason == ChatFinishReason.ToolCalls
+                && completion.ToolCalls.Count > 0)
             {
+                var cacheHits = 0;
                 foreach (var toolCall in completion.ToolCalls)
                 {
-                    var toolResult = await ExecuteToolCallAsync(toolCall, scope, cancellationToken);
-                    if (toolResult.Artifacts is { Count: > 0 })
+                    var (toolResult, fromCache) = await ExecuteToolCallAsync(toolCall, scope, toolCache, cancellationToken);
+                    if (fromCache)
+                    {
+                        cacheHits++;
+                    }
+                    else if (toolResult.Artifacts is { Count: > 0 })
                     {
                         collectedArtifacts.AddRange(toolResult.Artifacts);
                     }
 
                     stored.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
+                }
+
+                if (cacheHits == completion.ToolCalls.Count)
+                {
+                    allowTools = false;
                 }
 
                 continue;
@@ -127,9 +166,10 @@ public sealed class AssistantChatService : IAssistantChatService
             finalText = FallbackResultsText(replyLanguage);
         }
 
-        _conversations.Save(key, stored);
+        var (chatText, artifactsOut, title) = FinalizeAssistantReply(finalText, collectedArtifacts, stored);
+        await _conversations.SaveAsync(key, stored, artifactsOut, userMessage, title, cancellationToken);
 
-        return new AssistantChatResponse(conversationId, finalText, collectedArtifacts);
+        return new AssistantChatResponse(conversationId, chatText, artifactsOut, title);
     }
 
     public async IAsyncEnumerable<AssistantStreamEvent> StreamChatAsync(
@@ -138,17 +178,25 @@ public sealed class AssistantChatService : IAssistantChatService
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var replyLanguage = AssistantLanguage.Detect(request.Message);
-        using var _ = new CultureScope(replyLanguage);
+        using var cultureScope = new CultureScope(replyLanguage);
 
-        var (key, conversationId, stored) = PrepareConversation(request, scope);
+        var (key, conversationId, userMessage) = PrepareConversation(request, scope);
+        yield return new AssistantStatusEvent("thinking");
+
+        var stored = await LoadConversationAsync(key, userMessage, cancellationToken);
         var client = CreateChatClient();
-        var chatOptions = BuildChatOptions();
         var collectedArtifacts = new List<AssistantArtifact>();
+        var toolCache = new Dictionary<string, ToolResult>(StringComparer.Ordinal);
         var finalText = string.Empty;
+        var allowTools = true;
+        var ranTools = false;
 
         for (var turn = 0; turn < MaxToolTurns; turn++)
         {
-            var window = BuildModelWindow(stored, replyLanguage);
+            yield return new AssistantStatusEvent(ranTools || !allowTools ? "analyzing" : "thinking");
+
+            var window = BuildModelWindow(stored, replyLanguage, forceAnswer: !allowTools);
+            var chatOptions = BuildChatOptions(allowTools);
             var content = new StringBuilder();
             var toolCalls = new StreamingToolCallAccumulator();
             var sawToolCalls = false;
@@ -172,13 +220,8 @@ public sealed class AssistantChatService : IAssistantChatService
                         continue;
                     }
 
+                    // Buffer the final answer; emit chat tokens only after CHAT/OVERVIEW split.
                     content.Append(part.Text);
-
-                    // Tool turns stay silent. Tokens are emitted only once this turn has no tool calls.
-                    if (!sawToolCalls)
-                    {
-                        yield return new AssistantTokenEvent(part.Text);
-                    }
                 }
 
                 if (update.FinishReason is { } reason)
@@ -188,7 +231,7 @@ public sealed class AssistantChatService : IAssistantChatService
             }
 
             var builtCalls = toolCalls.Build();
-            if ((finish == ChatFinishReason.ToolCalls || sawToolCalls) && builtCalls.Count > 0)
+            if (allowTools && (finish == ChatFinishReason.ToolCalls || sawToolCalls) && builtCalls.Count > 0)
             {
                 var assistantMessage = new AssistantChatMessage(builtCalls);
                 if (content.Length > 0)
@@ -198,15 +241,28 @@ public sealed class AssistantChatService : IAssistantChatService
 
                 stored.Add(assistantMessage);
 
+                yield return new AssistantStatusEvent("querying");
+
+                var cacheHits = 0;
                 foreach (var toolCall in builtCalls)
                 {
-                    var toolResult = await ExecuteToolCallAsync(toolCall, scope, cancellationToken);
-                    if (toolResult.Artifacts is { Count: > 0 })
+                    var (toolResult, fromCache) = await ExecuteToolCallAsync(toolCall, scope, toolCache, cancellationToken);
+                    if (fromCache)
+                    {
+                        cacheHits++;
+                    }
+                    else if (toolResult.Artifacts is { Count: > 0 })
                     {
                         collectedArtifacts.AddRange(toolResult.Artifacts);
                     }
 
                     stored.Add(new ToolChatMessage(toolCall.Id, ReportArtifactMapper.ToToolJson(toolResult)));
+                }
+
+                ranTools = true;
+                if (cacheHits == builtCalls.Count)
+                {
+                    allowTools = false;
                 }
 
                 continue;
@@ -217,18 +273,67 @@ public sealed class AssistantChatService : IAssistantChatService
             break;
         }
 
+        yield return new AssistantStatusEvent("finalizing");
+
         if (string.IsNullOrWhiteSpace(finalText) && collectedArtifacts.Count > 0)
         {
             finalText = FallbackResultsText(replyLanguage);
         }
 
-        _conversations.Save(key, stored);
+        var (chatText, artifactsOut, title) = FinalizeAssistantReply(finalText, collectedArtifacts, stored);
+        await _conversations.SaveAsync(key, stored, artifactsOut, userMessage, title, cancellationToken);
 
-        yield return new AssistantArtifactsEvent(collectedArtifacts);
-        yield return new AssistantDoneEvent(conversationId);
+        if (chatText.Length > 0)
+        {
+            yield return new AssistantTokenEvent(chatText);
+        }
+
+        yield return new AssistantArtifactsEvent(artifactsOut);
+        yield return new AssistantDoneEvent(conversationId, title);
     }
 
-    private (ConversationKey Key, Guid ConversationId, List<ChatMessage> Stored) PrepareConversation(
+    /// <summary>
+    /// Keep the persisted assistant message short for chat; attach detailed markdown as OverviewArtifact.
+    /// </summary>
+    private static (string ChatText, List<AssistantArtifact> Artifacts, string? Title) FinalizeAssistantReply(
+        string finalText,
+        List<AssistantArtifact> collectedArtifacts,
+        List<ChatMessage> stored)
+    {
+        var preferOverview = collectedArtifacts.Count > 0
+            || finalText.Contains("<<<OVERVIEW>>>", StringComparison.OrdinalIgnoreCase)
+            || finalText.Contains("##OVERVIEW##", StringComparison.OrdinalIgnoreCase)
+            || finalText.Contains('|');
+
+        var (chatText, overview, title) = AssistantReplySplitter.Split(finalText, preferOverview);
+        if (string.IsNullOrWhiteSpace(chatText))
+        {
+            chatText = finalText.Trim();
+        }
+
+        // Replace the last assistant text turn with the short chat version (history stays concise).
+        for (var i = stored.Count - 1; i >= 0; i--)
+        {
+            if (stored[i] is AssistantChatMessage assistant
+                && assistant.ToolCalls.Count == 0
+                && assistant.Content.Count > 0)
+            {
+                stored[i] = new AssistantChatMessage(chatText);
+                break;
+            }
+        }
+
+        var artifactsOut = new List<AssistantArtifact>(collectedArtifacts.Count + 1);
+        artifactsOut.AddRange(collectedArtifacts.Where(a => a is not OverviewArtifact));
+        if (!string.IsNullOrWhiteSpace(overview))
+        {
+            artifactsOut.Insert(0, new OverviewArtifact(overview.Trim()));
+        }
+
+        return (chatText, artifactsOut, title);
+    }
+
+    private (ConversationKey Key, Guid ConversationId, string UserMessage) PrepareConversation(
         AssistantChatRequest request,
         AssistantScope scope)
     {
@@ -255,11 +360,19 @@ public sealed class AssistantChatService : IAssistantChatService
             : Guid.NewGuid();
 
         var key = new ConversationKey(scope.WorkspaceId, scope.UserId, conversationId);
-        var stored = _conversations.GetOrCreate(key)
+        return (key, conversationId, request.Message.Trim());
+    }
+
+    private async Task<List<ChatMessage>> LoadConversationAsync(
+        ConversationKey key,
+        string userMessage,
+        CancellationToken cancellationToken)
+    {
+        var stored = (await _conversations.GetOrCreateAsync(key, cancellationToken))
             .Where(message => message is not SystemChatMessage)
             .ToList();
-        stored.Add(new UserChatMessage(request.Message.Trim()));
-        return (key, conversationId, stored);
+        stored.Add(new UserChatMessage(userMessage));
+        return stored;
     }
 
     private async Task<ChatCompletion> CompleteChatAsync(
@@ -271,6 +384,10 @@ public sealed class AssistantChatService : IAssistantChatService
         try
         {
             return await client.CompleteChatAsync(window, chatOptions, cancellationToken);
+        }
+        catch (Exception ex) when (AssistantProviderFailures.IsRateLimited(ex))
+        {
+            throw RateLimited(ex);
         }
         catch (Exception ex) when (AssistantProviderFailures.IsUnreachable(ex))
         {
@@ -291,7 +408,20 @@ public sealed class AssistantChatService : IAssistantChatService
             AssistantServiceException.UnreachableCode);
     }
 
-    private List<ChatMessage> BuildModelWindow(IReadOnlyList<ChatMessage> stored, string replyLanguage)
+    private AssistantServiceException RateLimited(Exception? exception = null)
+    {
+        if (exception is not null)
+        {
+            _logger.LogWarning(exception, "Groq API rate limit exceeded after retries.");
+        }
+
+        return new AssistantServiceException(
+            "The assistant is busy right now (rate limit). Please wait about 20 seconds and try again.",
+            StatusCodes.Status429TooManyRequests,
+            AssistantServiceException.RateLimitedCode);
+    }
+
+    private List<ChatMessage> BuildModelWindow(IReadOnlyList<ChatMessage> stored, string replyLanguage, bool forceAnswer = false)
     {
         var conversational = stored.Where(message => message is not SystemChatMessage).ToList();
         if (conversational.Count > MaxHistoryMessages)
@@ -311,6 +441,12 @@ public sealed class AssistantChatService : IAssistantChatService
             new SystemChatMessage(BuildClockPrompt()),
             new SystemChatMessage(BuildLanguagePrompt(replyLanguage))
         };
+        if (forceAnswer)
+        {
+            window.Add(new SystemChatMessage(
+                "Tool results for this request are already complete. Do not call tools. Write <<<TITLE>>> (short topic + period, not a question), <<<CHAT>>> (markdown ## Summary/Итог heading, 1–2 sentences naming the tool period, then key-number bullets) and <<<OVERVIEW>>> (intent brief: understood request, period, implied metrics — no Summary heading, no number dump) now. Use only those facts."));
+        }
+
         window.AddRange(conversational);
         return window;
     }
@@ -401,9 +537,17 @@ public sealed class AssistantChatService : IAssistantChatService
         return new Uri(fallback);
     }
 
-    private ChatCompletionOptions BuildChatOptions()
+    private ChatCompletionOptions BuildChatOptions(bool allowTools = true)
     {
-        var options = new ChatCompletionOptions();
+        var options = new ChatCompletionOptions
+        {
+            Temperature = 0
+        };
+
+        if (!allowTools)
+        {
+            return options;
+        }
 
         foreach (var tool in _tools.Values)
         {
@@ -416,7 +560,25 @@ public sealed class AssistantChatService : IAssistantChatService
         return options;
     }
 
-    private async Task<ToolResult> ExecuteToolCallAsync(
+    private async Task<(ToolResult Result, bool FromCache)> ExecuteToolCallAsync(
+        ChatToolCall toolCall,
+        AssistantScope scope,
+        Dictionary<string, ToolResult> cache,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = toolCall.FunctionName + "\n" + toolCall.FunctionArguments.ToString().Trim();
+        if (cache.TryGetValue(cacheKey, out var cached))
+        {
+            _logger.LogInformation("Reused in-request tool cache for {Tool}", toolCall.FunctionName);
+            return (cached, true);
+        }
+
+        var result = await ExecuteToolCallCoreAsync(toolCall, scope, cancellationToken);
+        cache[cacheKey] = result;
+        return (result, false);
+    }
+
+    private async Task<ToolResult> ExecuteToolCallCoreAsync(
         ChatToolCall toolCall,
         AssistantScope scope,
         CancellationToken cancellationToken)
@@ -460,6 +622,7 @@ public sealed class AssistantChatService : IAssistantChatService
 public sealed class AssistantServiceException : Exception
 {
     public const string UnreachableCode = "assistant_unreachable";
+    public const string RateLimitedCode = "assistant_rate_limited";
 
     public int StatusCode { get; }
 
@@ -478,8 +641,40 @@ public sealed class AssistantServiceException : Exception
 
 internal static class AssistantProviderFailures
 {
+    public static bool IsRateLimited(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is ClientResultException clientEx)
+            {
+                if (clientEx.Status == 429)
+                {
+                    return true;
+                }
+
+                if (clientEx.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase)
+                    || clientEx.Message.Contains("tokens per minute", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            if (current.Message.Contains("rate_limit_exceeded", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static bool IsUnreachable(Exception exception)
     {
+        if (IsRateLimited(exception))
+        {
+            return false;
+        }
+
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
             if (current is OperationCanceledException)

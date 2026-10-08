@@ -38,7 +38,9 @@ internal static class AssistantLanguage
             }
         }
 
-        return Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
+        // Latin without PL/UK markers → English. Never fall back to Accept-Language /
+        // CurrentUICulture here: that is the shell locale, not this chat turn's language.
+        return "en";
     }
 
     public static string DisplayName(string lang) => lang switch

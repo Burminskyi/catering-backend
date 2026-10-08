@@ -2,48 +2,47 @@ using System.Text.Json.Nodes;
 using CateringSaaS.Modules.Assistant.Contracts;
 using CateringSaaS.Modules.Assistant.Services;
 using CateringSaaS.Modules.Reporting.Services;
+using CateringSaaS.Shared.MultiTenancy;
 
 namespace CateringSaaS.Modules.Assistant.Tools;
 
 public sealed class GetShortageForecastTool : IAssistantTool
 {
     private readonly IReportingService _reporting;
+    private readonly IClientTimeContext _clock;
 
-    public GetShortageForecastTool(IReportingService reporting)
+    public GetShortageForecastTool(IReportingService reporting, IClientTimeContext clock)
     {
         _reporting = reporting;
+        _clock = clock;
     }
 
     public string Name => "get_shortage_forecast";
 
     public string Description =>
-        "Kitchen shopping and ingredient shortage forecast for a target production/delivery date. " +
-        "Optional onlyDeficits=true to return only ingredients that will fall short.";
+        "Ingredient shortage forecast for confirmed orders on one day or a calendar period. " +
+        "Optional onlyDeficits. " +
+        AssistantPeriod.ParameterHint;
 
-    public JsonObject ParametersSchema { get; } = new()
-    {
-        ["type"] = "object",
-        ["properties"] = new JsonObject
+    public JsonObject ParametersSchema { get; } = AssistantPeriod.Schema(
+        ("onlyDeficits", new JsonObject
         {
-            ["targetDate"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["description"] = "Target ISO date (yyyy-MM-dd). Defaults to current UTC day."
-            },
-            ["onlyDeficits"] = new JsonObject
-            {
-                ["type"] = "boolean",
-                ["description"] = "When true, return only shortage rows."
-            }
-        }
-    };
+            ["type"] = "boolean",
+            ["description"] = "When true, return only shortage rows."
+        }));
 
-    public async Task<ToolResult> ExecuteAsync(JsonObject args, AssistantScope scope, CancellationToken ct)
+    public Task<ToolResult> ExecuteAsync(JsonObject args, AssistantScope scope, CancellationToken ct)
     {
         _ = scope;
-        var targetDate = ReportArtifactMapper.ReadDateOnly(args, "targetDate");
         var onlyDeficits = ReportArtifactMapper.ReadBool(args, "onlyDeficits");
-        var report = await _reporting.GetShortageForecastAsync(targetDate, onlyDeficits, ct);
-        return ReportArtifactMapper.FromReport(report);
+        return AssistantPeriod.ForCalendar(
+            args,
+            _clock,
+            period => _reporting.GetShortageForecastAsync(
+                period.DateFrom,
+                onlyDeficits,
+                ct,
+                period.DateFrom,
+                period.DateTo));
     }
 }
