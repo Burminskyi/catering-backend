@@ -163,6 +163,15 @@ public sealed class KnowledgeBaseService : IKnowledgeBaseService, IKnowledgeSear
         {
             _logger.LogError(ex, "Knowledge ingest failed for document {DocumentId}", document.Id);
 
+            // Drop failed chunk inserts from the tracker — otherwise SaveChanges retries
+            // INSERT ... Embedding and can throw again (e.g. broken pgvector type OID).
+            foreach (var entry in _dbContext.ChangeTracker.Entries<KnowledgeChunk>()
+                         .Where(e => e.Entity.DocumentId == document.Id)
+                         .ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+
             document.Status = KnowledgeDocumentStatus.Failed;
             document.ErrorMessage = ex.Message.Length <= 2000 ? ex.Message : ex.Message[..2000];
             document.ProcessedAtUtc = DateTime.UtcNow;

@@ -43,7 +43,10 @@ public sealed class DatabaseSeeder
         try
         {
             _logger.LogInformation("Applying EF Core migrations...");
+            // Repair broken pgvector after DROP SCHEMA public CASCADE (type gone, extension left).
+            await _dbContext.EnsurePgVectorAsync(cancellationToken);
             await _dbContext.Database.MigrateAsync(cancellationToken);
+            await _dbContext.EnsurePgVectorAsync(cancellationToken);
             _logger.LogInformation("Migrations applied successfully.");
         }
         catch (Exception ex)
