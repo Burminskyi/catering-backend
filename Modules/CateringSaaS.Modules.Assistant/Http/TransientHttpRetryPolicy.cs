@@ -7,16 +7,16 @@ namespace CateringSaaS.Modules.Assistant.Http;
 internal static class TransientHttpRetryPolicy
 {
     /// <summary>
-    /// Retries connection failures, HTTP 408/5xx, and HTTP 429.
-    /// For 429 prefers Retry-After, otherwise backs off 8s → 16s → 32s → 48s
-    /// (Groq TPM windows are often ~15–20s on free tier).
+    /// Short retries for connection failures, HTTP 408/5xx, and HTTP 429.
+    /// Keep total wait well under NetworkTimeout so the UI fails fast with a clear
+    /// message instead of spinning on "Analyzing…" for several minutes.
     /// </summary>
     public static IAsyncPolicy<HttpResponseMessage> Create() =>
         HttpPolicyExtensions
             .HandleTransientHttpError()
             .OrResult(response => response.StatusCode == HttpStatusCode.TooManyRequests)
             .WaitAndRetryAsync(
-                retryCount: 4,
+                retryCount: 2,
                 sleepDurationProvider: (attempt, outcome, _) => ResolveDelay(attempt, outcome.Result),
                 onRetryAsync: (_, _, _, _) => Task.CompletedTask);
 
@@ -27,7 +27,8 @@ internal static class TransientHttpRetryPolicy
             var retryAfter = response.Headers.RetryAfter;
             if (retryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
             {
-                return delta + TimeSpan.FromMilliseconds(750);
+                // Cap so free-tier TPM waits do not freeze the chat for minutes.
+                return TimeSpan.FromSeconds(Math.Min(25, delta.TotalSeconds)) + TimeSpan.FromMilliseconds(500);
             }
 
             if (retryAfter?.Date is { } date)
@@ -35,12 +36,12 @@ internal static class TransientHttpRetryPolicy
                 var until = date - DateTimeOffset.UtcNow;
                 if (until > TimeSpan.Zero)
                 {
-                    return until + TimeSpan.FromMilliseconds(750);
+                    return TimeSpan.FromSeconds(Math.Min(25, until.TotalSeconds)) + TimeSpan.FromMilliseconds(500);
                 }
             }
 
-            // attempt 1..4 → 10s, 18s, 28s, 40s
-            return TimeSpan.FromSeconds(Math.Min(45, 4 + (attempt * 6) + (attempt * attempt)));
+            // attempt 1..2 → ~8s, ~16s
+            return TimeSpan.FromSeconds(8 * attempt);
         }
 
         return TimeSpan.FromSeconds(Math.Pow(2, attempt));

@@ -20,8 +20,8 @@ public sealed class GetShortageForecastTool : IAssistantTool
     public string Name => "get_shortage_forecast";
 
     public string Description =>
-        "Ingredient shortage forecast for confirmed orders on one day or a calendar period. " +
-        "Optional onlyDeficits. " +
+        "Ingredient shortage forecast for Confirmed orders only (Pending/Delivered are ignored) " +
+        "on one day or a calendar period. Use nextDays for 'next N days'. Optional onlyDeficits. " +
         AssistantPeriod.ParameterHint;
 
     public JsonObject ParametersSchema { get; } = AssistantPeriod.Schema(

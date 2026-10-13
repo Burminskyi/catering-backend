@@ -493,7 +493,11 @@ public sealed class ReportingService : IReportingService
             ReportComposer.Metric("deliveredOrders", ReportLabels.DeliveredOrders, rows.Count, rows.Count.ToString()),
             ReportComposer.Metric("reviewCount", ReportLabels.Reviews, reviewCount, reviewCount.ToString()),
             ReportComposer.Metric("reclamationCount", ReportLabels.Reclamations, reclamations, reclamations.ToString()),
-            ReportComposer.Metric("averageRating", ReportLabels.AverageRating, avgRating, avgRating.ToString("0.0"))
+            ReportComposer.Metric(
+                "averageRating",
+                ReportLabels.AverageRating,
+                avgRating,
+                ReportComposer.Rating(avgRating))
         };
 
         var tableRows = rows.Select(r =>
@@ -628,7 +632,7 @@ public sealed class ReportingService : IReportingService
         {
             ReportComposer.Metric("reclamationCount", ReportLabels.Reclamations, reviewCount, reviewCount.ToString(),
                 $"rating ≤ {cap}"),
-            ReportComposer.Metric("averageRating", ReportLabels.AverageRating, avg, avg.ToString("0.0")),
+            ReportComposer.Metric("averageRating", ReportLabels.AverageRating, avg, ReportComposer.Rating(avg)),
             ReportComposer.Metric("dishCount", ReportLabels.Dishes, rows.Select(r => r.MenuItemId).Distinct().Count(),
                 rows.Select(r => r.MenuItemId).Distinct().Count().ToString()),
             ReportComposer.Metric("clientCount", ReportLabels.Clients, rows.Select(r => r.ClientCompanyId).Distinct().Count(),

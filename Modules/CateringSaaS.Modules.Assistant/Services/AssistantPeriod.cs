@@ -19,8 +19,11 @@ internal sealed record AssistantPeriod(
     string Label)
 {
     public const string ParameterHint =
-        "Pass preset, lastDays, lastHours, or date/dateFrom/dateTo. Do not calculate the dates yourself. " +
-        "Weeks start Monday. this week/month/year ends today. Default is today.";
+        "Pass preset, lastDays, nextDays, lastHours, or date/dateFrom/dateTo. Do not calculate the dates yourself. " +
+        "Weeks start Monday. this week/month/year ends today. Default is today. " +
+        "last N days / ostatnie N dni / последние N дней / останні N днів → lastDays=N (NOT last_week). " +
+        "next N days / najbliższe N dni / следующие N дней / наступні N днів → nextDays=N (includes today). " +
+        "last week / poprzedni tydzień / прошлая неделя / минулий тиждень → preset last_week.";
 
     public bool IsSingleDay => !IsInstant && DateFrom == DateTo;
 
@@ -82,7 +85,16 @@ internal sealed record AssistantPeriod(
         properties["lastDays"] = new JsonObject
         {
             ["type"] = "integer",
-            ["description"] = "Last N local calendar days including today. Example: last 3 days → 3."
+            ["description"] =
+                "Last N local calendar days including today. Example: last 7 days → 7. " +
+                "Do not use preset last_week for 'last N days'."
+        };
+        properties["nextDays"] = new JsonObject
+        {
+            ["type"] = "integer",
+            ["description"] =
+                "Next N local calendar days including today. Example: next 3 days → 3 " +
+                "(today through today+2). Do not invent dateFrom/dateTo yourself."
         };
         properties["lastHours"] = new JsonObject
         {
@@ -137,6 +149,13 @@ internal sealed record AssistantPeriod(
         {
             var days = Math.Clamp(lastDays, 1, 366);
             return Calendar(today.AddDays(1 - days), today);
+        }
+
+        var nextDays = ReportArtifactMapper.ReadInt(args, "nextDays", 0);
+        if (nextDays > 0)
+        {
+            var days = Math.Clamp(nextDays, 1, 366);
+            return Calendar(today, today.AddDays(days - 1));
         }
 
         var date = ReportArtifactMapper.ReadDateOnly(args, "date")

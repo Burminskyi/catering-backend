@@ -52,12 +52,15 @@ internal static partial class AssistantReplySplitter
 
             if (!string.IsNullOrWhiteSpace(chat) && !string.IsNullOrWhiteSpace(overview))
             {
-                return (chat, StripSummaryHeading(overview), ConversationTitle.Normalize(title));
+                return (
+                    StripInternalLeaks(chat),
+                    StripInternalLeaks(StripSummaryHeading(overview)),
+                    ConversationTitle.Normalize(title));
             }
 
             if (!string.IsNullOrWhiteSpace(chat))
             {
-                return (chat, null, ConversationTitle.Normalize(title));
+                return (StripInternalLeaks(chat), null, ConversationTitle.Normalize(title));
             }
         }
 
@@ -74,11 +77,33 @@ internal static partial class AssistantReplySplitter
                 chatOnly = TruncateAtSentence(chatOnly, 520);
             }
 
-            return (chatOnly, StripSummaryHeading(text), null);
+            return (
+                StripInternalLeaks(chatOnly),
+                StripInternalLeaks(StripSummaryHeading(text)),
+                null);
         }
 
-        return (text, null, null);
+        return (StripInternalLeaks(text), null, null);
     }
+
+    /// <summary>
+    /// Drop parenthetical / inline mentions of tool names and payload/DB field names
+    /// that models sometimes echo (e.g. "поле period з відповіді get_revenue_by_client").
+    /// </summary>
+    internal static string StripInternalLeaks(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
+
+        var cleaned = ParentheticalLeakRegex().Replace(text, string.Empty);
+        cleaned = InlineToolFieldLeakRegex().Replace(cleaned, string.Empty);
+        return CollapseWhitespace(cleaned).Trim();
+    }
+
+    private static string CollapseWhitespace(string text) =>
+        WhitespaceCollapseRegex().Replace(text, " ");
 
     private static void Collect(List<(int Index, int Length, string Kind)> markers, MatchCollection matches, string kind)
     {
@@ -137,4 +162,17 @@ internal static partial class AssistantReplySplitter
         @"^(?:#{1,6}\s*)?(?:\*\*)?(?:Summary|Overview summary|Итоги|Сводка|Підсумок|Podsumowanie)(?:\*\*)?\s*:?\s*\r?\n+",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SummaryHeadingRegex();
+
+    [GeneratedRegex(
+        @"\s*[\(\[\{]\s*(?:поле|field|ключ|key|tool|інструмент|инструмент|z\s+odpowiedzi|from\s+(?:the\s+)?(?:tool|response))[^)\]\}]{0,120}[\)\]\}]",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ParentheticalLeakRegex();
+
+    [GeneratedRegex(
+        @"\b(?:get_|resolve_|search_)[a-z0-9_]+\b|\b(?:WorkspaceId|ClientCompanyId|TargetDate|answerFrom|resolvedDates|SourcesJson|rowCount)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex InlineToolFieldLeakRegex();
+
+    [GeneratedRegex(@"[ \t]{2,}")]
+    private static partial Regex WhitespaceCollapseRegex();
 }

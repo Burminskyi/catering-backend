@@ -8,8 +8,9 @@ public sealed class GroqOptions
 
     public string ApiKey { get; set; } = string.Empty;
 
-    // Prefer 20b on free tier (higher TPM headroom than 120b). Must be in GET /openai/v1/models.
-    public string Model { get; set; } = "openai/gpt-oss-20b";
+    /// <summary>OpenAI-compatible chat model id (e.g. gpt-4o-mini).</summary>
+    public string Model { get; set; } = "gpt-4o-mini";
 
-    public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
+    /// <summary>OpenAI-compatible Chat Completions base URL (…/v1).</summary>
+    public string BaseUrl { get; set; } = "https://api.openai.com/v1";
 }

@@ -44,13 +44,20 @@ public sealed class AssistantChatService : IAssistantChatService
         Order tools use a business date and cannot answer lastHours. Stock-movement tools can.
         A clock shift such as 12:00-15:00 is timeFrom/timeTo, separate from lastHours.
         Critical stock and current balances are a snapshot, not a history.
-        State the period field returned by the tool. Do not name a different window.
+        State the resolved calendar period returned by the tool (the human-readable date or from–to range). Do not invent a different window.
         Language rules (mandatory):
         - Reply entirely in the language of the user's latest message (Ukrainian, Russian, Polish, or English).
         - A following system message states the detected reply language — obey it even if the UI locale differs.
+        - Polish must stay Polish (including when the user omitted diacritics). Never fall back to English for a Polish request.
         - Write dates, month names, and relative phrases in that same reply language. Do not mix languages in one answer.
         - Do not translate database field values (client names, dish names, ingredient names, supplier names, status codes as stored). Quote them as returned by tools.
         - Chart/table chrome (titles, column headers, legends) is localized by the server from the reply language; do not invent English labels in chat when the user wrote in another language.
+        Security / privacy (mandatory — never violate):
+        - Never mention database table names, column/property names, entity names, JSON keys, or tool payload fields
+          (e.g. WorkspaceId, TargetDate, ClientCompanyId, answerFrom, resolvedDates, metrics, rows, complete, rowCount, SourcesJson, get_revenue_by_client).
+        - Never say phrases like "from the tool field", "поле period", "з відповіді get_…", "DB entity", "SQL", or similar.
+        - Use dateFrom/dateTo / resolvedDates values as calendar dates only — never name those keys.
+        - Speak only in business language: orders, revenue, portions, stock, clients, dates — not schema.
         Knowledge / RAG rules (mandatory when search_knowledge_base returns documentChunks):
         - You are provided with context chunks from internal documents inside [DOCUMENT CHUNKS] / <context>.
         - The user query may be in Ukrainian, English, or Russian, while documents may be in another language.
@@ -65,22 +72,22 @@ public sealed class AssistantChatService : IAssistantChatService
         - Call the minimum tools needed (usually one pulse/report tool).
         - Never call the same tool twice with the same arguments in one turn chain.
         - After tool results arrive, answer immediately — do not re-fetch the same data.
-        - Obey each tool payload field answerFrom. State only numbers present in metrics, aggregates, highlights, or rows.
-        - If a table has complete=false, do not paste a markdown table of rows and do not describe rows that are not in highlights. Say that the on-screen table lists all rowCount rows.
+        - Obey each tool payload's answerFrom instruction privately. State only numbers present in metrics, aggregates, highlights, or rows — never name those keys to the user.
+        - If a table has complete=false, do not paste a markdown table of rows and do not describe rows that are not in highlights. Tell the user the on-screen table lists all rows (use the numeric rowCount, not the word rowCount).
         - If complete=true, rows are exhaustive and may be cited.
         Response layout (mandatory when tools returned metrics/tables or you produce a multi-section report):
         Write these sections with markers on their own lines:
         <<<TITLE>>>
-        One short workspace title in the reply language: topic + resolved period from the tool period field.
+        One short workspace title in the reply language: topic + resolved dates (e.g. 2026-10-13 or 2026-10-07 – 2026-10-13).
         Example (ru): Выручка по клиентам за период с 2026-09-09 по 2026-10-08
         Example (en): Client revenue for 2026-09-09 – 2026-10-08
         Rules: noun phrase, not a question, not a copy of the user message, no markdown, max ~90 characters.
         <<<CHAT>>>
         Start with a markdown H2 heading in the reply language (## Summary / ## Итог / ## Підсумок / ## Podsumowanie).
-        Then 1–2 short sentences that name the resolved period from the tool period field (a single day or a from–to range) and frame the result (e.g. for this period we have…).
+        Then 1–2 short sentences that name the resolved dates (a single day or a from–to range) and frame the result (e.g. for this period we have…).
         After that, 2–6 bullets with the key numbers in bold. Do not dump numbers without saying which period they cover. No markdown tables. End by pointing to the results panel on the right (tables and charts) for details — never use the word artifacts in user-visible text (say results panel / панель с данными / panel wyników / панель результатів as appropriate).
         <<<OVERVIEW>>>
-        Intent brief only — how you understood the request. 2–4 short sentences or bullets covering: what the user asked for, the resolved period (use the tool period field), and which data that implies (e.g. orders, revenue, kitchen readiness, critical stock). Do NOT repeat the numerical summary. Do NOT write a Summary/Итог heading here. Do NOT paste markdown tables here — charts and tables render separately below.
+        Intent brief only — how you understood the request. 2–4 short sentences or bullets covering: what the user asked for, the resolved dates, and which business data that implies (e.g. orders, revenue, kitchen readiness, critical stock). Do NOT name internal fields or tools. Do NOT repeat the numerical summary. Do NOT write a Summary/Итог heading here. Do NOT paste markdown tables here — charts and tables render separately below.
         If there is nothing to visualize (no tools / no report), omit the markers and write a normal short reply only.
         Use bold for key numbers. Avoid decorative ASCII separators.
         If a knowledge search returns no relevant documents, say so and do not fabricate policy or recipe text.
@@ -227,37 +234,35 @@ public sealed class AssistantChatService : IAssistantChatService
 
             var window = BuildModelWindow(stored, replyLanguage, forceAnswer: !allowTools);
             var chatOptions = BuildChatOptions(allowTools);
-            var content = new StringBuilder();
-            var toolCalls = new StreamingToolCallAccumulator();
+            StringBuilder content;
+            StreamingToolCallAccumulator toolCalls;
             var sawToolCalls = false;
             ChatFinishReason? finish = null;
 
-            await foreach (var update in client.CompleteChatStreamingAsync(window, chatOptions, cancellationToken))
+            try
             {
-                if (update.ToolCallUpdates.Count > 0)
+                (content, toolCalls, sawToolCalls, finish) = await StreamModelTurnAsync(
+                    client, window, chatOptions, cancellationToken);
+            }
+            catch (Exception ex) when (
+                AssistantProviderFailures.IsRateLimited(ex)
+                || AssistantProviderFailures.IsProviderTimeout(ex, cancellationToken))
+            {
+                // Tools already produced charts/tables — show them instead of a blank timeout.
+                if (collectedArtifacts.Count > 0)
                 {
-                    sawToolCalls = true;
-                    foreach (var toolUpdate in update.ToolCallUpdates)
-                    {
-                        toolCalls.Append(toolUpdate);
-                    }
+                    _logger.LogWarning(ex, "LLM answer turn failed after tools; returning artifact fallback.");
+                    finalText = FallbackResultsText(replyLanguage);
+                    stored.Add(new AssistantChatMessage(finalText));
+                    break;
                 }
 
-                foreach (var part in update.ContentUpdate)
+                if (AssistantProviderFailures.IsRateLimited(ex))
                 {
-                    if (string.IsNullOrEmpty(part.Text))
-                    {
-                        continue;
-                    }
-
-                    // Buffer the final answer; emit chat tokens only after CHAT/OVERVIEW split.
-                    content.Append(part.Text);
+                    throw RateLimited(ex);
                 }
 
-                if (update.FinishReason is { } reason)
-                {
-                    finish = reason;
-                }
+                throw TimedOut(ex);
             }
 
             var builtCalls = toolCalls.Build();
@@ -451,10 +456,31 @@ public sealed class AssistantChatService : IAssistantChatService
         {
             throw RateLimited(ex);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            throw TimedOut(ex);
+        }
         catch (Exception ex) when (AssistantProviderFailures.IsUnreachable(ex))
         {
             throw Unreachable(ex);
         }
+    }
+
+    private AssistantServiceException TimedOut(Exception? exception = null)
+    {
+        if (exception is not null)
+        {
+            _logger.LogWarning(exception, "Groq API request timed out (often after 429 backoff).");
+        }
+
+        return new AssistantServiceException(
+            "The assistant timed out (often rate limit). Please wait about 20 seconds and try again.",
+            StatusCodes.Status504GatewayTimeout,
+            AssistantServiceException.TimedOutCode);
     }
 
     private AssistantServiceException Unreachable(Exception? exception = null)
@@ -516,8 +542,9 @@ public sealed class AssistantChatService : IAssistantChatService
             window.Add(new SystemChatMessage(
                 """
                 Tool results for this request are already complete. Do not call tools.
+                Never mention database/schema/JSON/tool field names in user-visible text — business language only.
                 If the latest tool payload contains [DOCUMENT CHUNKS] / <context>: answer ONLY from that context, translate facts into the user's language, cite document titles, and write a normal short reply (no <<<TITLE>>>/<<<CHAT>>>/<<<OVERVIEW>>> markers).
-                Otherwise (metrics/tables): Write <<<TITLE>>> (short topic + period, not a question), <<<CHAT>>> (markdown ## Summary/Итог heading, 1–2 sentences naming the tool period, then key-number bullets) and <<<OVERVIEW>>> (intent brief: understood request, period, implied metrics — no Summary heading, no number dump) now. Use only those facts.
+                Otherwise (metrics/tables): Write <<<TITLE>>> (short topic + resolved dates, not a question), <<<CHAT>>> (markdown ## Summary/Итог heading, 1–2 sentences naming the dates, then key-number bullets) and <<<OVERVIEW>>> (intent brief: understood request, dates, implied business metrics — no Summary heading, no number dump, no internal field names) now. Use only those facts.
                 """));
         }
 
@@ -637,11 +664,65 @@ public sealed class AssistantChatService : IAssistantChatService
 
     private static string FallbackResultsText(string replyLanguage) => replyLanguage switch
     {
-        "uk" => "Ось результати.",
-        "pl" => "Oto wyniki.",
-        "ru" => "Вот результаты.",
-        _ => "Here are the results."
+        "uk" =>
+            "Короткий текстовий підсумок зараз недоступний (ліміт API). " +
+            "Таблиці та графіки — у панелі справа.",
+        "pl" =>
+            "Krótkie podsumowanie tekstowe jest teraz niedostępne (limit API). " +
+            "Tabele i wykresy są w panelu po prawej.",
+        "ru" =>
+            "Краткий текстовый итог сейчас недоступен (лимит API). " +
+            "Таблицы и графики — в панели справа.",
+        _ =>
+            "A short text summary is unavailable right now (API limit). " +
+            "See tables and charts in the panel on the right."
     };
+
+    private static async Task<(
+        StringBuilder Content,
+        StreamingToolCallAccumulator ToolCalls,
+        bool SawToolCalls,
+        ChatFinishReason? Finish)> StreamModelTurnAsync(
+        ChatClient client,
+        IReadOnlyList<ChatMessage> window,
+        ChatCompletionOptions chatOptions,
+        CancellationToken cancellationToken)
+    {
+        var content = new StringBuilder();
+        var toolCalls = new StreamingToolCallAccumulator();
+        var sawToolCalls = false;
+        ChatFinishReason? finish = null;
+
+        await foreach (var update in client.CompleteChatStreamingAsync(window, chatOptions, cancellationToken))
+        {
+            if (update.ToolCallUpdates.Count > 0)
+            {
+                sawToolCalls = true;
+                foreach (var toolUpdate in update.ToolCallUpdates)
+                {
+                    toolCalls.Append(toolUpdate);
+                }
+            }
+
+            foreach (var part in update.ContentUpdate)
+            {
+                if (string.IsNullOrEmpty(part.Text))
+                {
+                    continue;
+                }
+
+                // Buffer the final answer; emit chat tokens only after CHAT/OVERVIEW split.
+                content.Append(part.Text);
+            }
+
+            if (update.FinishReason is { } reason)
+            {
+                finish = reason;
+            }
+        }
+
+        return (content, toolCalls, sawToolCalls, finish);
+    }
 
     private ChatClient CreateChatClient()
     {
@@ -650,13 +731,14 @@ public sealed class AssistantChatService : IAssistantChatService
         {
             Endpoint = ResolveGroqEndpoint(_options.BaseUrl),
             Transport = new HttpClientPipelineTransport(httpClient),
-            NetworkTimeout = TimeSpan.FromMinutes(2),
+            // Covers Polly's short 429 backoff (~8s+16s) plus the completion call.
+            NetworkTimeout = TimeSpan.FromSeconds(90),
             // Polly on the Groq HttpClient owns 429/5xx retries.
             RetryPolicy = new ClientRetryPolicy(maxRetries: 0)
         };
 
         var model = string.IsNullOrWhiteSpace(_options.Model)
-            ? "openai/gpt-oss-20b"
+            ? "gpt-4o-mini"
             : _options.Model.Trim();
 
         return new ChatClient(
@@ -667,7 +749,7 @@ public sealed class AssistantChatService : IAssistantChatService
 
     private static Uri ResolveGroqEndpoint(string? baseUrl)
     {
-        const string fallback = "https://api.groq.com/openai/v1";
+        const string fallback = "https://api.openai.com/v1";
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
             return new Uri(fallback);
@@ -783,6 +865,7 @@ public sealed class AssistantServiceException : Exception
 {
     public const string UnreachableCode = "assistant_unreachable";
     public const string RateLimitedCode = "assistant_rate_limited";
+    public const string TimedOutCode = "assistant_timed_out";
 
     public int StatusCode { get; }
 
@@ -848,6 +931,38 @@ internal static class AssistantProviderFailures
             }
 
             if (current is ClientResultException)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// NetworkTimeout / Polly cancel — not a browser abort of <paramref name="requestToken"/>.
+    /// </summary>
+    public static bool IsProviderTimeout(Exception exception, CancellationToken requestToken)
+    {
+        if (requestToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is TimeoutException)
+            {
+                return true;
+            }
+
+            if (current is TaskCanceledException or OperationCanceledException)
+            {
+                return true;
+            }
+
+            if (current.Message.Contains("NetworkTimeout", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("exceeded the configured timeout", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

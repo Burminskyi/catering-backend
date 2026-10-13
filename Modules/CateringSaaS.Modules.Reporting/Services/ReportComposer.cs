@@ -1,3 +1,4 @@
+using System.Globalization;
 using CateringSaaS.Shared.Reporting;
 
 namespace CateringSaaS.Modules.Reporting.Services;
@@ -24,9 +25,12 @@ internal static class ReportComposer
         return row;
     }
 
-    public static string Money(decimal value) => value.ToString("0.##");
+    /// <summary>Invariant so charts never parse "4,3" as 43.</summary>
+    public static string Money(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
-    public static string Quantity(decimal value) => value.ToString("0.##");
+    public static string Quantity(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
-    public static string Percent(decimal value) => value.ToString("0.#") + "%";
+    public static string Percent(decimal value) => value.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    public static string Rating(decimal value) => value.ToString("0.0", CultureInfo.InvariantCulture);
 }

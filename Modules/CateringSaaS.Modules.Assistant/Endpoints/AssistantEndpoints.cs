@@ -108,6 +108,19 @@ public static class AssistantEndpoints
         {
             // The browser closed the stream.
         }
+        catch (OperationCanceledException ex)
+        {
+            // Provider NetworkTimeout / Polly cancel — not a client abort. Without this the SSE
+            // stays open and the UI freezes on "Analyzing results…".
+            logger.LogWarning(ex, "Groq API request timed out (often after 429 backoff).");
+            await WriteFailureAsync(
+                response,
+                started,
+                StatusCodes.Status504GatewayTimeout,
+                "The assistant timed out (often rate limit). Please wait about 20 seconds and try again.",
+                AssistantServiceException.TimedOutCode,
+                cancellationToken);
+        }
         catch (AssistantServiceException ex)
         {
             await WriteFailureAsync(response, started, ex.StatusCode, ex.Message, ex.Code, cancellationToken);
@@ -132,6 +145,17 @@ public static class AssistantEndpoints
                 StatusCodes.Status503ServiceUnavailable,
                 "The assistant is temporarily unavailable. Please try again in a moment.",
                 AssistantServiceException.UnreachableCode,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected assistant stream failure.");
+            await WriteFailureAsync(
+                response,
+                started,
+                StatusCodes.Status500InternalServerError,
+                "The assistant failed unexpectedly. Please try again.",
+                "assistant_error",
                 cancellationToken);
         }
     }

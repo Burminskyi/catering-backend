@@ -22,6 +22,8 @@ public sealed class GetOperationsPulseTool : IAssistantTool
     public string Description =>
         "Operations pulse for one day or any calendar period: orders, revenue, portions, kitchen readiness, " +
         "and the current critical-stock snapshot. One call covers a week, month, year, or explicit range. " +
+        "For critical-stock / low-balance only questions, still use this tool (critical stock is in the payload) " +
+        "and focus the answer on critical stock metrics — do not invent a separate stock search. " +
         AssistantPeriod.ParameterHint;
 
     public JsonObject ParametersSchema { get; } = AssistantPeriod.Schema();

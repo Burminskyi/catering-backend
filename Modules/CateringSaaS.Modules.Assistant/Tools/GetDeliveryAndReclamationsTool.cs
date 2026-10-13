@@ -20,7 +20,8 @@ public sealed class GetDeliveryAndReclamationsTool : IAssistantTool
     public string Name => "get_delivery_and_reclamations";
 
     public string Description =>
-        "Client delivery audit with reviews and reclamations. Optional clientCompanyId. " +
+        "Delivered orders only, with meal reviews and reclamations. Optional clientCompanyId. " +
+        "averageRating is a 1–5 score (not a percent). Does not include pending/in-progress orders. " +
         AssistantPeriod.ParameterHint;
 
     public JsonObject ParametersSchema { get; } = AssistantPeriod.Schema(

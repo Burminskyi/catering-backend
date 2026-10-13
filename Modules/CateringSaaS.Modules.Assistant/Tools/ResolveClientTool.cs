@@ -46,26 +46,24 @@ public sealed class ResolveClientTool : IAssistantTool
 
         var matches = await _clients.SearchByNameAsync(scope.WorkspaceId, query, limit, ct);
 
-        var rows = matches.Select(m => new Dictionary<string, object?>
-        {
-            ["clientCompanyId"] = m.Id,
-            ["name"] = m.Name,
-            ["address"] = m.Address,
-            ["contactName"] = m.ContactName,
-            ["contactPhone"] = m.ContactPhone
-        }).ToList();
-
+        // UI table: no internal IDs. The LLM still gets Id via `clients` in tool data.
         var artifacts = new List<AssistantArtifact>
         {
             new TableArtifact(
                 "Matching clients",
                 [
                     new ArtifactColumn("name", "Company"),
-                    new ArtifactColumn("clientCompanyId", "Client ID"),
                     new ArtifactColumn("contactName", "Contact"),
-                    new ArtifactColumn("contactPhone", "Phone")
+                    new ArtifactColumn("contactPhone", "Phone"),
+                    new ArtifactColumn("address", "Address")
                 ],
-                rows)
+                matches.Select(m => new Dictionary<string, object?>
+                {
+                    ["name"] = m.Name,
+                    ["contactName"] = m.ContactName,
+                    ["contactPhone"] = m.ContactPhone,
+                    ["address"] = m.Address
+                }).ToList())
         };
 
         return new ToolResult(

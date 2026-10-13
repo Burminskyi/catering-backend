@@ -24,6 +24,7 @@ public static class AssistantModuleExtensions
         services.Configure<GroqOptions>(configuration.GetSection(GroqOptions.SectionName));
         services.Configure<AssistantRagOptions>(configuration.GetSection(AssistantRagOptions.SectionName));
 
+        // Named "Groq" historically; transports any OpenAI-compatible chat API (OpenAI, Groq, etc.).
         services.AddHttpClient(GroqOptions.HttpClientName, client =>
         {
             // The OpenAI pipeline applies NetworkTimeout. Polly retries 429/5xx on this handler.

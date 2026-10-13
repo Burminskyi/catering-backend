@@ -43,7 +43,8 @@ internal static class ReportArtifactMapper
         var facts = new
         {
             answerFrom = AnswerFrom,
-            period,
+            // Human-readable resolved window — never echo this key name to the user.
+            resolvedDates = period,
             title = report.Title,
             dateFrom = report.DateFrom?.ToString("yyyy-MM-dd"),
             dateTo = report.DateTo?.ToString("yyyy-MM-dd"),
