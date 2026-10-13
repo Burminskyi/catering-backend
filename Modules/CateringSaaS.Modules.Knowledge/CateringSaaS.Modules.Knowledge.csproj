@@ -4,6 +4,10 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Vendored so Docker publish does not download from Hugging Face (429). -->
+    <LocalEmbeddingsModelName>default</LocalEmbeddingsModelName>
+    <LocalEmbeddingsModelPath>$(MSBuildThisFileDirectory)Embeddings\model.onnx</LocalEmbeddingsModelPath>
+    <LocalEmbeddingsVocabPath>$(MSBuildThisFileDirectory)Embeddings\vocab.txt</LocalEmbeddingsVocabPath>
   </PropertyGroup>
 
   <ItemGroup>
